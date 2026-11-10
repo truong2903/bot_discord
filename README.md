@@ -4,31 +4,41 @@ Dự án Bot Discord chuyên nghiệp với giao diện **Rich Embed** và các 
 
 ---
 
-## 📸 Hình Thức Giao Diện (Giống Ảnh Mẫu)
+## 📸 Hình Thức Giao Diện (Chuẩn Pro VIP)
 
-Bot sẽ gửi một bảng tin nhắn dạng Embed kèm hàng nút bấm phía dưới:
+Bot sẽ gửi một bảng tin nhắn dạng Embed kèm Menu thả xuống và hàng nút bấm phía dưới:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
+│ ⚡ [TÊN SERVER] • Official HypeSquad Hub                    │
 │ 🌟 DISCORD HYPESQUAD SELECTOR • BẢNG CHỌN HUY HIỆU          │
 │                                                             │
-│ 💜 House of Bravery      • Dũng Cảm & Tiên Phong (#9B59B6)  │
-│ 🧡 House of Brilliance   • Xuất Chúng & Sáng Tạo (#E67E22)  │
-│ 🩵 House of Balance      • Cân Bằng & Bình Thản (#1ABC9C)   │
+│ > ### ✨ GIA NHẬP HYPESQUAD • TỎA SÁNG CÁ TÍNH!             │
+│ > Hãy lựa chọn một trong ba ngôi nhà danh giá...            │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ 💜 House of Bravery      • Dũng Cảm & Tiên Phong            │
+│                          • Thành viên: X người              │
+│ 🧡 House of Brilliance   • Xuất Chúng & Sáng Tạo            │
+│                          • Thành viên: Y người              │
+│ 🩵 House of Balance      • Cân Bằng & Hòa Bình              │
+│                          • Thành viên: Z người              │
 │                                                             │
-│ 👑 Tự động gán Role trong Server khi chọn nhà!              │
-│ ⚡ Bấm các nút bên dưới để nhận huy hiệu!                  │
+│ 👑 Đặc Quyền: Gán Role đổi màu tên & Profile Badge thật     │
+│ ⚡ Bấm nút bên dưới hoặc chọn Menu để nhận huy hiệu!        │
 └─────────────────────────────────────────────────────────────┘
-      [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ]
+  [ 🔽 Hoặc chọn nhanh ngôi nhà tại đây... (Select Menu) ]
+  [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ]
 ```
 
 ---
 
 ## ✨ Tính Năng Nổi Bật
 
-1. **Giao diện Nút Bấm chuẩn Discord Interaction:**
-   - Người dùng bấm trực tiếp vào nút màu của nhà mình thích.
-   - Nút bấm hoạt động vĩnh viễn (**Persistent View**), không bị mất tác dụng sau khi tắt hoặc khởi động lại Bot.
+1. **Giao diện Nút Bấm & Menu Dropdown chuẩn Discord Interaction:**
+   - Hỗ trợ cả **4 Nút Bấm màu sắc** và **Menu Thả Xuống (Dropdown Select)** tiện lợi.
+   - Hiển thị **Author Header** mang tên và avatar chính thức của Server.
+   - Thống kê **Số lượng thành viên trực tiếp** đang ở mỗi nhà trong Server.
+   - Nút bấm và Menu hoạt động vĩnh viễn (**Persistent View**), không bị mất tác dụng sau khi tắt hoặc khởi động lại Bot.
    - Tự động nhận diện và hiển thị **Emoji Động (Animated Emojis)** của server trên cả Embed và nút bấm!
 
 2. **2 Trong 1 (Server Role & Profile Badge):**

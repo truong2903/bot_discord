@@ -303,11 +303,84 @@ def get_custom_emoji(guild: Optional[discord.Guild], client: Optional[discord.Cl
     return fallback
 
 
+def get_house_member_count(guild: Optional[discord.Guild], house_id: int) -> int:
+    """Đếm số lượng thành viên đang sở hữu Role của nhà HypeSquad trong server"""
+    if not guild:
+        return 0
+    role_names = CONFIG.get("role_names", {
+        "1": "House of Bravery",
+        "2": "House of Brilliance",
+        "3": "House of Balance"
+    })
+    target_name = role_names.get(str(house_id), "").lower()
+    for role in guild.roles:
+        if target_name in role.name.lower() or role.name.lower() in target_name:
+            return len(role.members)
+    return 0
+
+
+class HypeSquadSelect(discord.ui.Select):
+    """Menu thả xuống chọn ngôi nhà HypeSquad"""
+
+    def __init__(self, guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None):
+        bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
+        brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
+        balance_e = get_custom_emoji(guild, client, "1050hypesquadhouseofbalance", "🩵")
+
+        options = [
+            discord.SelectOption(
+                label="House of Bravery",
+                description="Dũng cảm & Tiên phong (Màu Tím)",
+                value="1",
+                emoji=bravery_e if isinstance(bravery_e, discord.Emoji) else "💜"
+            ),
+            discord.SelectOption(
+                label="House of Brilliance",
+                description="Xuất chúng & Sáng tạo (Màu Cam)",
+                value="2",
+                emoji=brilliance_e if isinstance(brilliance_e, discord.Emoji) else "🧡"
+            ),
+            discord.SelectOption(
+                label="House of Balance",
+                description="Cân bằng & Hòa bình (Màu Xanh Ngọc)",
+                value="3",
+                emoji=balance_e if isinstance(balance_e, discord.Emoji) else "🩵"
+            ),
+            discord.SelectOption(
+                label="Gỡ Bỏ Huy Hiệu",
+                description="Rời khỏi nhà HypeSquad hiện tại",
+                value="0",
+                emoji="❌"
+            )
+        ]
+        super().__init__(
+            placeholder="🔽 Hoặc chọn nhanh ngôi nhà tại đây...",
+            min_values=1,
+            max_values=1,
+            custom_id="hypesquad_select_house",
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        house_id = int(self.values[0])
+        house_name = "Gỡ Bỏ Huy Hiệu" if house_id == 0 else HOUSES.get(house_id, {}).get("name", "")
+        custom_e = get_custom_emoji(
+            interaction.guild,
+            interaction.client,
+            "8495hypesquadhouseofbravery" if house_id == 1 else "7693hypesquadhouseofbrilliance" if house_id == 2 else "1050hypesquadhouseofbalance",
+            "❌" if house_id == 0 else "✨"
+        )
+        await interaction.response.send_modal(TokenModal(house_id, house_name, str(custom_e)))
+
+
 class HypeSquadPanelView(discord.ui.View):
     """View chứa các nút bấm tương tác vĩnh viễn (Persistent View)"""
 
     def __init__(self, guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None):
         super().__init__(timeout=None)
+        # Thêm Dropdown Select Menu
+        self.add_item(HypeSquadSelect(guild, client))
+
         if guild or client:
             bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
             brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
@@ -358,49 +431,83 @@ class HypeSquadPanelView(discord.ui.View):
 
 
 def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None) -> discord.Embed:
-    """Tạo Embed giao diện bảng điều khiển đẹp mắt với emoji động của 3 nhà HypeSquad"""
+    """Tạo Embed giao diện bảng điều khiển đẹp mắt theo chuẩn Pro VIP"""
     bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
     brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
     balance_e = get_custom_emoji(guild, client, "1050hypesquadhouseofbalance", "🩵")
 
+    bravery_count = get_house_member_count(guild, 1)
+    brilliance_count = get_house_member_count(guild, 2)
+    balance_count = get_house_member_count(guild, 3)
+
     embed = discord.Embed(
         title="🌟 DISCORD HYPESQUAD SELECTOR • BẢNG CHỌN HUY HIỆU",
         description=(
-            "Tham gia vào một trong **ba ngôi nhà HypeSquad danh giá** của Discord để thể hiện cá tính, "
-            "nhận huy hiệu lấp lánh trên hồ sơ cá nhân và nhận vai trò tương ứng trong máy chủ!\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            "> ### ✨ GIA NHẬP HYPESQUAD • TỎA SÁNG CÁ TÍNH!\n"
+            "> Hãy lựa chọn một trong **ba ngôi nhà danh giá** của Discord để nhận huy hiệu chính thức "
+            "trên trang cá nhân và mở khóa vai trò đổi màu tên độc quyền trong máy chủ!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         ),
         color=0x5865F2  # Blurple
     )
 
+    # Thêm Author Header mang thương hiệu server
+    if guild:
+        server_icon = guild.icon.url if guild.icon else None
+        embed.set_author(
+            name=f"⚡ {guild.name} • Official HypeSquad Hub",
+            icon_url=server_icon
+        )
+    elif client and client.user:
+        embed.set_author(
+            name=f"⚡ {client.user.name} • Official HypeSquad Hub",
+            icon_url=client.user.display_avatar.url
+        )
+
+    # 3 Cột Ngôi Nhà HypeSquad với biểu tượng động và đếm số lượng thành viên
     embed.add_field(
         name=f"{bravery_e} House of Bravery",
-        value="• Biểu tượng: Dũng cảm & Tiên phong\n• Màu sắc đại diện: Tím hoàng gia (#9B59B6)",
+        value=(
+            "> **Châm ngôn:** Dũng Cảm & Tiên Phong\n"
+            "> **Màu sắc:** Tím Hoàng Gia (`#9B59B6`)\n"
+            f"> **Thành viên:** `{bravery_count} người`"
+        ),
         inline=True
     )
     embed.add_field(
         name=f"{brilliance_e} House of Brilliance",
-        value="• Biểu tượng: Xuất chúng & Sáng tạo\n• Màu sắc đại diện: Cam nhiệt huyết (#E67E22)",
+        value=(
+            "> **Châm ngôn:** Xuất Chúng & Sáng Tạo\n"
+            "> **Màu sắc:** Cam Nhiệt Huyết (`#E67E22`)\n"
+            f"> **Thành viên:** `{brilliance_count} người`"
+        ),
         inline=True
     )
     embed.add_field(
         name=f"{balance_e} House of Balance",
-        value="• Biểu tượng: Cân bằng & Bình thản\n• Màu sắc đại diện: Xanh ngọc bích (#1ABC9C)",
+        value=(
+            "> **Châm ngôn:** Cân Bằng & Hòa Bình\n"
+            "> **Màu sắc:** Xanh Ngọc Bích (`#1ABC9C`)\n"
+            f"> **Thành viên:** `{balance_count} người`"
+        ),
         inline=True
     )
 
     embed.add_field(
-        name="👑 Tính Năng Tự Động:",
+        name="👑 Đặc Quyền & Tính Năng Tự Động:",
         value=(
-            "• **Role Server:** Bot tự động gán vai trò có màu tương ứng ngay trong server.\n"
-            "• **Profile Badge:** Chọn nhập Token hoặc nhận mã 1-Click Console để mở khóa huy hiệu thật trên hồ sơ."
+            "> • **Vai Trò Server:** Nhận ngay Role đổi màu tên nổi bật trong danh sách thành viên.\n"
+            "> • **Profile Badge:** Mở khóa huy hiệu HypeSquad thật xuất hiện trên hồ sơ cá nhân vĩnh viễn!"
         ),
         inline=False
     )
 
     embed.add_field(
-        name="⚡ Cách Thức Nhận:",
-        value="👉 **Bấm vào một trong các nút bên dưới** để nhận ngôi nhà bạn yêu thích!",
+        name="⚡ Cách Thức Thực Hiện:",
+        value=(
+            "> 👉 **Bấm nút bên dưới** hoặc **chọn từ Menu cuộn** để gia nhập ngôi nhà yêu thích!\n"
+            "-# 🔒 Hệ thống kích hoạt an toàn 24/7 • Hoàn toàn bảo mật"
+        ),
         inline=False
     )
 
