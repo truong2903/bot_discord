@@ -72,8 +72,7 @@ Mở file `config.json` và dán Token vào:
 1. Vào kênh bất kỳ trong server (nơi bạn muốn đặt bảng chọn nhà).
 2. Gõ lệnh:
    ```text
-   /hypersquad-panel
+   /hypesquad-panel
    ```
-   *(Hoặc `/hypesquad-panel`)*
 3. Bot sẽ gửi ngay bảng điều khiển Embed lộng lẫy kèm các nút bấm tương tác.
 4. Bất kỳ ai trong server bấm vào nút nhà nào đều sẽ nhận được vai trò và hướng dẫn kích hoạt huy hiệu tương ứng!
