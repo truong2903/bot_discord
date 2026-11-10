@@ -1,0 +1,15 @@
+{
+  "bot_token": "",
+  "guild_id": "",
+  "auto_create_roles": true,
+  "role_names": {
+    "1": "House of Bravery",
+    "2": "House of Brilliance",
+    "3": "House of Balance"
+  },
+  "role_colors": {
+    "1": "9b59b6",
+    "2": "e67e22",
+    "3": "1abc9c"
+  }
+}
