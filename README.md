@@ -19,7 +19,7 @@ Bot sẽ gửi một bảng tin nhắn dạng Embed kèm hàng nút bấm phía 
 │ 👑 Tự động gán Role trong Server khi chọn nhà!              │
 │ ⚡ Bấm các nút bên dưới để nhận huy hiệu!                  │
 └─────────────────────────────────────────────────────────────┘
-  [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ] [ 🌐 Web 1-Click ]
+      [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ]
 ```
 
 ---
@@ -29,6 +29,7 @@ Bot sẽ gửi một bảng tin nhắn dạng Embed kèm hàng nút bấm phía 
 1. **Giao diện Nút Bấm chuẩn Discord Interaction:**
    - Người dùng bấm trực tiếp vào nút màu của nhà mình thích.
    - Nút bấm hoạt động vĩnh viễn (**Persistent View**), không bị mất tác dụng sau khi tắt hoặc khởi động lại Bot.
+   - Tự động nhận diện và hiển thị **Emoji Động (Animated Emojis)** của server trên cả Embed và nút bấm!
 
 2. **2 Trong 1 (Server Role & Profile Badge):**
    - **Vai Trò Server (Server Role):** Bot tự động tạo 3 vai trò tương ứng và gán ngay cho người bấm trong Server (hiển thị màu tên đẹp mắt).
