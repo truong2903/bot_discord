@@ -63,7 +63,7 @@ Mở file `config.json` và dán Token vào:
 *(Nếu không điền trước, khi chạy bot lần đầu chương trình sẽ tự động hỏi và lưu lại cho bạn)*.
 
 ### Bước 3: Khởi Chạy
-* Nhấp đúp vào file **`run.bat`** để khởi chạy Bot.
+* Khởi chạy Bot trên nền tảng hosting hoặc nhấp đúp vào file **`run.bat`** trên máy tính.
 
 ---
 
@@ -72,7 +72,8 @@ Mở file `config.json` và dán Token vào:
 1. Vào kênh bất kỳ trong server (nơi bạn muốn đặt bảng chọn nhà).
 2. Gõ lệnh:
    ```text
-   /hypesquad-panel
+   /hypersquad-panel
    ```
-3. Bot sẽ gửi ngay bảng điều khiển Embed lộng lẫy kèm 5 nút bấm tương tác.
+   *(Hoặc `/hypesquad-panel`)*
+3. Bot sẽ gửi ngay bảng điều khiển Embed lộng lẫy kèm các nút bấm tương tác.
 4. Bất kỳ ai trong server bấm vào nút nhà nào đều sẽ nhận được vai trò và hướng dẫn kích hoạt huy hiệu tương ứng!

@@ -401,14 +401,24 @@ async def on_ready():
     print(f" • Bot ID     : {bot.user.id}")
     print(f" • Servers    : Đang kết nối {len(bot.guilds)} máy chủ")
     print(f" • Lệnh khả dụng:")
-    print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET} : Gửi bảng điều khiển Embed có NÚT BẤM tương tác")
-    print(f"   - {Colors.CYAN}/ping{Colors.RESET}            : Kiểm tra phản hồi bot")
+    print(f"   - {Colors.CYAN}/hypersquad-panel{Colors.RESET} : Gửi bảng điều khiển Embed có NÚT BẤM tương tác")
+    print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET}  : Lệnh phụ (bí danh)")
+    print(f"   - {Colors.CYAN}/ping{Colors.RESET}             : Kiểm tra phản hồi bot")
     print(f"{Colors.GREEN}====================================================================={Colors.RESET}\n")
+
+
+@bot.tree.command(name="hypersquad-panel", description="Gửi bảng điều khiển chọn huy hiệu HypeSquad với các nút bấm")
+@app_commands.default_permissions(manage_guild=True)
+async def cmd_panel(interaction: discord.Interaction):
+    embed = create_panel_embed()
+    view = HypeSquadPanelView()
+    await interaction.channel.send(embed=embed, view=view)
+    await interaction.response.send_message("✅ Đã gửi bảng điều khiển HypeSquad thành công!", ephemeral=True)
 
 
 @bot.tree.command(name="hypesquad-panel", description="Gửi bảng điều khiển chọn huy hiệu HypeSquad với các nút bấm")
 @app_commands.default_permissions(manage_guild=True)
-async def cmd_panel(interaction: discord.Interaction):
+async def cmd_panel_alias(interaction: discord.Interaction):
     embed = create_panel_embed()
     view = HypeSquadPanelView()
     await interaction.channel.send(embed=embed, view=view)
