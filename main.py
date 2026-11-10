@@ -281,13 +281,6 @@ class HypeSquadPanelView(discord.ui.View):
 
     def __init__(self):
         super().__init__(timeout=None)
-        # Thêm nút Link chuyển hướng trang Web 1-Click
-        self.add_item(discord.ui.Button(
-            label="Web 1-Click",
-            emoji="🌐",
-            style=discord.ButtonStyle.link,
-            url="https://truong2903.github.io/discord-hypesquad-badge/?v=2"
-        ))
 
     @discord.ui.button(
         label="Bravery",
