@@ -1,13 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-chcp 65001 >nul 2>&1
-set PYTHONUTF8=1
-set PYTHONIOENCODING=utf-8
-title Discord HypeSquad Selector Bot Pro
+title Discord Multi-Function Bot
 
 echo =====================================================================
-echo       🌟 DISCORD HYPESQUAD SELECTOR BOT PRO (EMBED + BUTTONS)
+echo       DISCORD BOT PRO (EMBED + BUTTONS)
 echo =====================================================================
 echo.
 
@@ -15,9 +12,9 @@ python --version >nul 2>&1
 if %errorlevel% neq 0 (
     py --version >nul 2>&1
     if %errorlevel% equ 0 (
-        echo [INFO] Đang kiểm tra thư viện...
+        echo [INFO] Kiem tra thu vien...
         py -m pip install -r requirements.txt >nul 2>&1
-        echo [INFO] Khởi chạy Bot...
+        echo [INFO] Khoi chay Bot...
         py main.py
         if %errorlevel% neq 0 pause
         exit /b
@@ -28,9 +25,9 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo [INFO] Đang kiểm tra và cài đặt thư viện cần thiết...
+echo [INFO] Kiem tra va cai dat thu vien can thiet...
 python -m pip install -r requirements.txt >nul 2>&1
-echo [INFO] Khởi chạy Bot...
+echo [INFO] Khoi chay Bot...
 python main.py
 if %errorlevel% neq 0 (
     pause
