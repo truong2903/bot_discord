@@ -319,68 +319,11 @@ def get_house_member_count(guild: Optional[discord.Guild], house_id: int) -> int
     return 0
 
 
-class HypeSquadSelect(discord.ui.Select):
-    """Menu thả xuống chọn ngôi nhà HypeSquad"""
-
-    def __init__(self, guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None):
-        bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
-        brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
-        balance_e = get_custom_emoji(guild, client, "1050hypesquadhouseofbalance", "🩵")
-
-        options = [
-            discord.SelectOption(
-                label="House of Bravery",
-                description="Dũng cảm & Tiên phong (Màu Tím)",
-                value="1",
-                emoji=bravery_e if isinstance(bravery_e, discord.Emoji) else "💜"
-            ),
-            discord.SelectOption(
-                label="House of Brilliance",
-                description="Xuất chúng & Sáng tạo (Màu Cam)",
-                value="2",
-                emoji=brilliance_e if isinstance(brilliance_e, discord.Emoji) else "🧡"
-            ),
-            discord.SelectOption(
-                label="House of Balance",
-                description="Cân bằng & Hòa bình (Màu Xanh Ngọc)",
-                value="3",
-                emoji=balance_e if isinstance(balance_e, discord.Emoji) else "🩵"
-            ),
-            discord.SelectOption(
-                label="Gỡ Bỏ Huy Hiệu",
-                description="Rời khỏi nhà HypeSquad hiện tại",
-                value="0",
-                emoji="❌"
-            )
-        ]
-        super().__init__(
-            placeholder="🔽 Hoặc chọn nhanh ngôi nhà tại đây...",
-            min_values=1,
-            max_values=1,
-            custom_id="hypesquad_select_house",
-            options=options
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        house_id = int(self.values[0])
-        house_name = "Gỡ Bỏ Huy Hiệu" if house_id == 0 else HOUSES.get(house_id, {}).get("name", "")
-        custom_e = get_custom_emoji(
-            interaction.guild,
-            interaction.client,
-            "8495hypesquadhouseofbravery" if house_id == 1 else "7693hypesquadhouseofbrilliance" if house_id == 2 else "1050hypesquadhouseofbalance",
-            "❌" if house_id == 0 else "✨"
-        )
-        await interaction.response.send_modal(TokenModal(house_id, house_name, str(custom_e)))
-
-
 class HypeSquadPanelView(discord.ui.View):
     """View chứa các nút bấm tương tác vĩnh viễn (Persistent View)"""
 
     def __init__(self, guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None):
         super().__init__(timeout=None)
-        # Thêm Dropdown Select Menu
-        self.add_item(HypeSquadSelect(guild, client))
-
         if guild or client:
             bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
             brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
@@ -503,9 +446,9 @@ def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[d
     )
 
     embed.add_field(
-        name="⚡ Cách Thức Thực Hiện:",
+        name="⚡ Cách Thức Nhận:",
         value=(
-            "> 👉 **Bấm nút bên dưới** hoặc **chọn từ Menu cuộn** để gia nhập ngôi nhà yêu thích!\n"
+            "> 👉 **Bấm vào một trong các nút bên dưới** để nhận ngôi nhà bạn yêu thích!\n"
             "-# 🔒 Hệ thống kích hoạt an toàn 24/7 • Hoàn toàn bảo mật"
         ),
         inline=False

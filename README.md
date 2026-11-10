@@ -6,7 +6,7 @@ Dự án Bot Discord chuyên nghiệp với giao diện **Rich Embed** và các 
 
 ## 📸 Hình Thức Giao Diện (Chuẩn Pro VIP)
 
-Bot sẽ gửi một bảng tin nhắn dạng Embed kèm Menu thả xuống và hàng nút bấm phía dưới:
+Bot sẽ gửi một bảng tin nhắn dạng Embed kèm hàng 4 nút bấm gọn gàng phía dưới:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -24,21 +24,20 @@ Bot sẽ gửi một bảng tin nhắn dạng Embed kèm Menu thả xuống và 
 │                          • Thành viên: Z người              │
 │                                                             │
 │ 👑 Đặc Quyền: Gán Role đổi màu tên & Profile Badge thật     │
-│ ⚡ Bấm nút bên dưới hoặc chọn Menu để nhận huy hiệu!        │
+│ ⚡ Bấm một trong các nút bên dưới để nhận ngôi nhà!         │
 └─────────────────────────────────────────────────────────────┘
-  [ 🔽 Hoặc chọn nhanh ngôi nhà tại đây... (Select Menu) ]
-  [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ]
+      [ 💜 Bravery ] [ 🧡 Brilliance ] [ 🩵 Balance ] [ ❌ Gỡ ]
 ```
 
 ---
 
 ## ✨ Tính Năng Nổi Bật
 
-1. **Giao diện Nút Bấm & Menu Dropdown chuẩn Discord Interaction:**
-   - Hỗ trợ cả **4 Nút Bấm màu sắc** và **Menu Thả Xuống (Dropdown Select)** tiện lợi.
+1. **Giao diện Nút Bấm Chuẩn Discord Interaction (Gọn Gàng, Sang Trọng):**
+   - Hàng **4 Nút Bấm màu sắc** trực quan, tối giản, không bị rối mắt.
    - Hiển thị **Author Header** mang tên và avatar chính thức của Server.
    - Thống kê **Số lượng thành viên trực tiếp** đang ở mỗi nhà trong Server.
-   - Nút bấm và Menu hoạt động vĩnh viễn (**Persistent View**), không bị mất tác dụng sau khi tắt hoặc khởi động lại Bot.
+   - Nút bấm hoạt động vĩnh viễn (**Persistent View**), không bị mất tác dụng sau khi tắt hoặc khởi động lại Bot.
    - Tự động nhận diện và hiển thị **Emoji Động (Animated Emojis)** của server trên cả Embed và nút bấm!
 
 2. **2 Trong 1 (Server Role & Profile Badge):**
