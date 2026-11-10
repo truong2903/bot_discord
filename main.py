@@ -455,6 +455,11 @@ def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[d
     )
 
     embed.set_thumbnail(url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png")
+    
+    # Thiết lập Banner Đồ Họa Ngang HypeSquad
+    banner_url = CONFIG.get("banner_url", "").strip() or "https://raw.githubusercontent.com/truong2903/bot_discord/main/banner.png"
+    embed.set_image(url=banner_url)
+
     embed.set_footer(
         text="HypeSquad System v2.0 • Hoạt động 24/7 • An toàn 100%",
         icon_url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
@@ -503,7 +508,15 @@ async def on_ready():
 async def cmd_panel(interaction: discord.Interaction):
     embed = create_panel_embed(guild=interaction.guild, client=bot)
     view = HypeSquadPanelView(guild=interaction.guild, client=bot)
-    await interaction.channel.send(embed=embed, view=view)
+    
+    banner_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "banner.png")
+    if os.path.exists(banner_path):
+        banner_file = discord.File(banner_path, filename="banner.png")
+        embed.set_image(url="attachment://banner.png")
+        await interaction.channel.send(embed=embed, file=banner_file, view=view)
+    else:
+        await interaction.channel.send(embed=embed, view=view)
+
     await interaction.response.send_message("✅ Đã gửi bảng điều khiển HypeSquad thành công!", ephemeral=True)
 
 

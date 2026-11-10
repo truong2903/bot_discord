@@ -2,6 +2,7 @@
   "bot_token": "",
   "guild_id": "",
   "auto_create_roles": true,
+  "banner_url": "",
   "role_names": {
     "1": "House of Bravery",
     "2": "House of Brilliance",
