@@ -16,7 +16,7 @@ import sys
 import json
 import asyncio
 import aiohttp
-from typing import Optional
+from typing import Optional, Union
 
 # Cấu hình UTF-8 cho Windows CMD/PowerShell
 if sys.platform == "win32":
@@ -192,10 +192,12 @@ class TokenModal(discord.ui.Modal):
     """Cửa sổ Modal mở ra cho người dùng nhập Token hoặc lấy mã Console"""
 
     def __init__(self, house_id: int, house_name: str, emoji: str):
-        super().__init__(title=f"{emoji} Kích Hoạt {house_name}")
+        # Tiêu đề Modal trên Discord không được chứa Custom Emoji (<:name:id>), chỉ nhận Unicode
+        clean_emoji = "💜" if house_id == 1 else "🧡" if house_id == 2 else "🩵" if house_id == 3 else "❌"
+        super().__init__(title=f"{clean_emoji} Kích Hoạt {house_name}")
         self.house_id = house_id
         self.house_name = house_name
-        self.emoji = emoji
+        self.emoji = str(emoji) if emoji else clean_emoji
 
         self.token_input = discord.ui.TextInput(
             label="Token Discord (Để kích hoạt vào Profile)",
@@ -276,11 +278,44 @@ class TokenModal(discord.ui.Modal):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
+def get_custom_emoji(guild: Optional[discord.Guild], client: Optional[discord.Client], target_name: str, fallback: str) -> Union[discord.Emoji, str]:
+    """Tìm custom emoji (kể cả emoji động Animated) trong server theo tên"""
+    clean_target = target_name.strip(":").lower()
+
+    # 1. Tìm trong server hiện tại
+    if guild:
+        for e in guild.emojis:
+            if e.name.lower() == clean_target:
+                return e
+        for e in guild.emojis:
+            if clean_target in e.name.lower() or e.name.lower() in clean_target:
+                return e
+
+    # 2. Tìm trong danh sách toàn bộ emoji mà bot thấy
+    if client:
+        for e in client.emojis:
+            if e.name.lower() == clean_target:
+                return e
+        for e in client.emojis:
+            if clean_target in e.name.lower() or e.name.lower() in clean_target:
+                return e
+
+    return fallback
+
+
 class HypeSquadPanelView(discord.ui.View):
     """View chứa các nút bấm tương tác vĩnh viễn (Persistent View)"""
 
-    def __init__(self):
+    def __init__(self, guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None):
         super().__init__(timeout=None)
+        if guild or client:
+            bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
+            brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
+            balance_e = get_custom_emoji(guild, client, "1050hypesquadhouseofbalance", "🩵")
+
+            self.btn_bravery.emoji = bravery_e
+            self.btn_brilliance.emoji = brilliance_e
+            self.btn_balance.emoji = balance_e
 
     @discord.ui.button(
         label="Bravery",
@@ -289,7 +324,8 @@ class HypeSquadPanelView(discord.ui.View):
         custom_id="hypesquad_btn_bravery"
     )
     async def btn_bravery(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(TokenModal(1, "House of Bravery", "💜"))
+        custom_e = get_custom_emoji(interaction.guild, interaction.client, "8495hypesquadhouseofbravery", "💜")
+        await interaction.response.send_modal(TokenModal(1, "House of Bravery", str(custom_e)))
 
     @discord.ui.button(
         label="Brilliance",
@@ -298,7 +334,8 @@ class HypeSquadPanelView(discord.ui.View):
         custom_id="hypesquad_btn_brilliance"
     )
     async def btn_brilliance(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(TokenModal(2, "House of Brilliance", "🧡"))
+        custom_e = get_custom_emoji(interaction.guild, interaction.client, "7693hypesquadhouseofbrilliance", "🧡")
+        await interaction.response.send_modal(TokenModal(2, "House of Brilliance", str(custom_e)))
 
     @discord.ui.button(
         label="Balance",
@@ -307,7 +344,8 @@ class HypeSquadPanelView(discord.ui.View):
         custom_id="hypesquad_btn_balance"
     )
     async def btn_balance(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(TokenModal(3, "House of Balance", "🩵"))
+        custom_e = get_custom_emoji(interaction.guild, interaction.client, "1050hypesquadhouseofbalance", "🩵")
+        await interaction.response.send_modal(TokenModal(3, "House of Balance", str(custom_e)))
 
     @discord.ui.button(
         label="Gỡ Huy Hiệu",
@@ -319,8 +357,12 @@ class HypeSquadPanelView(discord.ui.View):
         await interaction.response.send_modal(TokenModal(0, "Gỡ Bỏ Huy Hiệu", "❌"))
 
 
-def create_panel_embed() -> discord.Embed:
-    """Tạo Embed giao diện bảng điều khiển đẹp mắt theo phong cách chuyên nghiệp"""
+def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None) -> discord.Embed:
+    """Tạo Embed giao diện bảng điều khiển đẹp mắt với emoji động của 3 nhà HypeSquad"""
+    bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
+    brilliance_e = get_custom_emoji(guild, client, "7693hypesquadhouseofbrilliance", "🧡")
+    balance_e = get_custom_emoji(guild, client, "1050hypesquadhouseofbalance", "🩵")
+
     embed = discord.Embed(
         title="🌟 DISCORD HYPESQUAD SELECTOR • BẢNG CHỌN HUY HIỆU",
         description=(
@@ -332,17 +374,17 @@ def create_panel_embed() -> discord.Embed:
     )
 
     embed.add_field(
-        name="💜 House of Bravery",
+        name=f"{bravery_e} House of Bravery",
         value="• Biểu tượng: Dũng cảm & Tiên phong\n• Màu sắc đại diện: Tím hoàng gia (#9B59B6)",
         inline=True
     )
     embed.add_field(
-        name="🧡 House of Brilliance",
+        name=f"{brilliance_e} House of Brilliance",
         value="• Biểu tượng: Xuất chúng & Sáng tạo\n• Màu sắc đại diện: Cam nhiệt huyết (#E67E22)",
         inline=True
     )
     embed.add_field(
-        name="🩵 House of Balance",
+        name=f"{balance_e} House of Balance",
         value="• Biểu tượng: Cân bằng & Bình thản\n• Màu sắc đại diện: Xanh ngọc bích (#1ABC9C)",
         inline=True
     )
@@ -409,8 +451,8 @@ async def on_ready():
 @bot.tree.command(name="hypersquad-panel", description="Gửi bảng điều khiển chọn huy hiệu HypeSquad với các nút bấm")
 @app_commands.default_permissions(manage_guild=True)
 async def cmd_panel(interaction: discord.Interaction):
-    embed = create_panel_embed()
-    view = HypeSquadPanelView()
+    embed = create_panel_embed(guild=interaction.guild, client=bot)
+    view = HypeSquadPanelView(guild=interaction.guild, client=bot)
     await interaction.channel.send(embed=embed, view=view)
     await interaction.response.send_message("✅ Đã gửi bảng điều khiển HypeSquad thành công!", ephemeral=True)
 
