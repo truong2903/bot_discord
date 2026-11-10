@@ -281,6 +281,13 @@ class HypeSquadPanelView(discord.ui.View):
 
     def __init__(self):
         super().__init__(timeout=None)
+        # Thêm nút Link chuyển hướng trang Web 1-Click
+        self.add_item(discord.ui.Button(
+            label="Web 1-Click",
+            emoji="🌐",
+            style=discord.ButtonStyle.link,
+            url="https://truong2903.github.io/discord-hypesquad-badge/?v=2"
+        ))
 
     @discord.ui.button(
         label="Bravery",
@@ -317,15 +324,6 @@ class HypeSquadPanelView(discord.ui.View):
     )
     async def btn_leave(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TokenModal(0, "Gỡ Bỏ Huy Hiệu", "❌"))
-
-    @discord.ui.button(
-        label="Web 1-Click",
-        emoji="🌐",
-        style=discord.ButtonStyle.link,
-        url="https://truong2903.github.io/discord-hypesquad-badge/?v=2"
-    )
-    async def btn_web(self, interaction: discord.Interaction, button: discord.ui.Button):
-        pass
 
 
 def create_panel_embed() -> discord.Embed:
