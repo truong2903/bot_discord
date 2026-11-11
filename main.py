@@ -536,11 +536,12 @@ def create_automod_embed(guild_count: int, active_rules: int, flags: int, is_pub
     needed_servers = max(0, 17 - guild_count)
 
     embed.add_field(
-        name="👑 Tiến Trình & Hướng Dẫn Kế Tiếp:",
+        name="👑 Hướng Dẫn Các Bước Hoàn Tất:",
         value=(
-            f"> • **10 Server Đầu Tiên:** Bot đã tự động tạo và kích hoạt 60 quy tắc AutoMod.\n"
-            f"> • **{needed_servers} Server Còn Lại:** Bạn bấm dấu **`[+]`** trên Discord tạo thêm {needed_servers} server cá nhân (~35s), rồi bấm nút **[🔗 Mời Bot Vào Server]** bên dưới.\n"
-            f"> • **Đẩy Đủ 100+ Rules:** Sau khi mời bot vào đủ, bấm nút **[🚀 Triển Khai 100+ Rules]** để bot tự động rải 6 rule/server!"
+            f"> • **Bước 1 (Tạo Server):** Bấm dấu **`[+]`** trên Discord tạo thêm **{needed_servers} server** cá nhân trống (~1 phút).\n"
+            f"> • **Bước 2 (Mời Bot):** Bấm nút **[🔗 Mời Bot Vào Server]** bên dưới để thêm bot vào các server vừa tạo.\n"
+            f"> • **Bước 3 (Nạp Rules):** Bấm nút **[🚀 Triển Khai 100+ Rules]** để bot tự động nạp 6 quy tắc/server đến khi đủ 102 rules!\n"
+            f"> • **Bước 4 (Kiểm Tra):** Bấm nút **[🔍 Kiểm Tra Tiến Độ]** để tra cứu cờ `16777216`."
         ),
         inline=False
     )
@@ -619,11 +620,21 @@ class AutoModPanelView(discord.ui.View):
             else:
                 break
 
-        await interaction.followup.send(
-            f"✅ **Thành công:** Đã tự động tạo thêm **{created_count} server test** và nạp sẵn **{rules_created} quy tắc AutoMod**!\n"
-            f"🌐 Tổng số server bot đang ở: **{len(bot_client.guilds)} / 17**.",
-            ephemeral=True
-        )
+        if created_count > 0:
+            await interaction.followup.send(
+                f"✅ **Thành công:** Đã tự động tạo thêm **{created_count} server test** và nạp sẵn **{rules_created} quy tắc AutoMod**!\n"
+                f"🌐 Tổng số server bot đang ở: **{len(bot_client.guilds)} / 17**.",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                "⚠️ **Thông báo từ Discord:** Hệ thống Discord đã chính thức **vô hiệu hóa tính năng Bot tự tạo server** qua API (Lỗi `403 Forbidden` để ngăn chặn spam server rác).\n\n"
+                "👉 **Cách hoàn tất cực nhanh (chỉ mất ~1 phút):**\n"
+                "1️⃣ Trên Discord, bạn bấm dấu **`[+]`** *(Thêm máy chủ)* ➔ Bấm *Tạo* (làm khoảng 16 lần, mỗi server mất đúng 4-5 giây).\n"
+                "2️⃣ Bấm nút **[🔗 Mời Bot Vào Server]** bên dưới để thêm bot vào các server đó.\n"
+                "3️⃣ Bấm nút **[🚀 Triển Khai 100+ Rules]**, bot sẽ tự động quét và nạp 6 quy tắc AutoMod/server để đạt **102 / 100 rules** ngay lập tức!",
+                ephemeral=True
+            )
 
     @discord.ui.button(
         label="Triển Khai 100+ Rules",
