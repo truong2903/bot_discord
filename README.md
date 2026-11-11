@@ -89,9 +89,8 @@ Mở file `config.json` và dán Token vào:
 ### 2. Bảng Điều Khiển AutoMod Badge (Uses AutoMod)
 * Gõ lệnh:
   ```text
-  /tao_sever
+  /tao_server
   ```
-  *(hoặc `/tao_server`)*
 * **Cơ chế hoạt động:**
   - Bot gửi bảng điều khiển Embed chuẩn phong cách Pro VIP kèm các nút bấm tương tác:
     - `[🚀 Triển Khai 100+ Rules]`: Tự động quét và đẩy đủ 102 quy tắc AutoMod lên tất cả server bot tham gia.

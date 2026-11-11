@@ -1312,14 +1312,14 @@ async def on_ready():
     print(f" • Servers    : Đang kết nối {len(bot.guilds)} máy chủ")
     print(f" • Lệnh khả dụng:")
     print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET}  : Gửi bảng điều khiển HypeSquad có NÚT BẤM tương tác")
-    print(f"   - {Colors.CYAN}/tao_sever{Colors.RESET}        : Mở bảng điều khiển kích hoạt 100+ rules AutoMod Badge")
+    print(f"   - {Colors.CYAN}/tao_server{Colors.RESET}       : Mở bảng điều khiển kích hoạt 100+ rules AutoMod Badge")
     print(f"   - {Colors.CYAN}/verified_server{Colors.RESET}  : Bảng điều khiển kiểm định & hỗ trợ lấy Verified Server Badge (Tích Xanh 🟢)")
     print(f"   - {Colors.CYAN}/ping{Colors.RESET}             : Kiểm tra phản hồi bot")
     print(f"{Colors.GREEN}====================================================================={Colors.RESET}\n")
 
 
 async def handle_tao_server(interaction: discord.Interaction):
-    """Xử lý lệnh /tao_sever hoặc /tao_server"""
+    """Xử lý lệnh /tao_server"""
     await interaction.response.defer(ephemeral=False)
     bot_client: commands.Bot = interaction.client
     token = bot_client.http.token
@@ -1341,12 +1341,6 @@ async def handle_tao_server(interaction: discord.Interaction):
         await interaction.channel.send(embed=embed, view=view)
 
     await interaction.followup.send("✅ Đã mở bảng điều khiển AutoMod Badge Hub thành công!", ephemeral=True)
-
-
-@bot.tree.command(name="tao_sever", description="Mở bảng điều khiển kích hoạt 100+ rules AutoMod Badge")
-@app_commands.default_permissions(manage_guild=True)
-async def cmd_tao_sever(interaction: discord.Interaction):
-    await handle_tao_server(interaction)
 
 
 @bot.tree.command(name="tao_server", description="Mở bảng điều khiển kích hoạt 100+ rules AutoMod Badge")
