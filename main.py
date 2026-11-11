@@ -1354,7 +1354,6 @@ async def cmd_tao_server(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="hypesquad-panel", description="Gửi bảng điều khiển chọn huy hiệu HypeSquad với các nút bấm")
-@app_commands.default_permissions(manage_guild=True)
 async def cmd_panel(interaction: discord.Interaction):
     embed = create_panel_embed(guild=interaction.guild, client=bot)
     view = HypeSquadPanelView(guild=interaction.guild, client=bot)
