@@ -97,3 +97,18 @@ Mở file `config.json` và dán Token vào:
     - `[🚀 Triển Khai 100+ Rules]`: Tự động quét và đẩy đủ 102 quy tắc AutoMod lên tất cả server bot tham gia.
     - `[🔍 Kiểm Tra Tiến Độ]`: Xem báo cáo cờ `16777216`, số lượng server và rules active theo thời gian thực.
     - `[🔗 Mời Bot Vào Server]`: Link mời bot với quyền Quản trị viên để thêm vào các server của bạn.
+
+### 3. Bảng Điều Khiển Verified Server Badge (Tích Xanh 🟢)
+* Gõ lệnh:
+  ```text
+  /verified_server
+  ```
+  *(hoặc `/verified_panel`)*
+* **Cơ chế hoạt động:**
+  - Bot gửi bảng điều khiển **Verified Server Hub** chuẩn phong cách NCT Pro VIP kèm bộ 6 nút bấm tương tác:
+    - `[ 🔍 Audit Máy Chủ ]`: Quét máy chủ hiện tại, đánh giá tiêu chuẩn Community, rules channel, explicit content filter và chấm điểm Readiness (0 - 100%).
+    - `[ ⚡ Auto-Setup Kênh & Bảo Mật ]`: Tự động tạo 5 kênh chuẩn game (`#rules-and-info`, `#game-announcements`, `#patch-notes`, `#community-chat`, `#bug-reports`) và nâng cấp bộ lọc an toàn cho máy chủ.
+    - `[ 🎮 Tra Cứu Steam Game ]`: Mở Modal Popup nhập Steam App ID để bot tra cứu thông tin game trên Steam Store, kiểm tra trạng thái Playable và quét link Discord.
+    - `[ 🔗 Tạo Link Proof Steam ]`: Mở Modal Popup nhập Invite link + Proof Token để sinh đường dẫn chuẩn hóa dán vào Steamworks Partner Admin.
+    - `[ 📖 Cẩm Nang Claim A-Z ]`: Hướng dẫn chi tiết 5 bước từ lúc có game trên Steam đến khi Discord cấp tích xanh.
+    - `[ 🚀 Discord Developer Portal ]`: Nút link mở trực tiếp trang quản trị ứng dụng Discord.

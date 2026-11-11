@@ -16,7 +16,8 @@ import sys
 import json
 import asyncio
 import aiohttp
-from typing import Optional, Union
+import re
+from typing import Optional, Union, List, Tuple
 
 # Cấu hình UTF-8 cho Windows CMD/PowerShell
 if sys.platform == "win32":
@@ -633,54 +634,554 @@ class AutoModPanelView(discord.ui.View):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-        total_rules = await count_total_automod_rules(bot_client)
 
-        if total_rules >= 100:
-            msg = (
-                f"🎉 **XUẤT SẮC!** Bot hiện có tổng cộng **{total_rules}/100 quy tắc AutoMod đang hoạt động**!\n"
-                f"✅ **ĐÃ ĐỦ 100% ĐIỀU KIỆN!** Discord sẽ quét và tự động gắn huy hiệu **Uses AutoMod** trong vòng 12 - 24 giờ tới."
-            )
+# =============================================================================
+# 🟢 DISCORD VERIFIED SERVER & STEAM GAME CLAIMING SUITE (NCT HUB)
+# =============================================================================
+
+async def api_fetch_steam_game(app_id: str) -> Tuple[bool, dict]:
+    """Truy vấn thông tin chi tiết của Game trên Steam Store bằng Steam API"""
+    clean_id = str(app_id).strip()
+    if not clean_id.isdigit():
+        return False, {"error": "Steam App ID phải là chuỗi số nguyên hợp lệ (Ví dụ: 730, 105600, 252490)!"}
+
+    url = f"https://store.steampowered.com/api/appdetails?appids={clean_id}&cc=us&l=english"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    timeout = aiohttp.ClientTimeout(total=10)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    app_data = data.get(clean_id, {})
+                    if app_data.get("success"):
+                        return True, app_data.get("data", {})
+                    return False, {"error": f"Game với App ID `{clean_id}` không tồn tại hoặc chưa công khai trên Steam Store!"}
+                return False, {"error": f"Steam API trả về mã lỗi: `{resp.status}`"}
+    except Exception as e:
+        return False, {"error": f"Không thể kết nối tới Steam Store API: {e}"}
+
+
+async def api_check_steam_discord_link(app_id: str) -> Tuple[bool, Optional[str], str]:
+    """Quét mã HTML trang cửa hàng Steam để tìm liên kết Discord công khai"""
+    clean_id = str(app_id).strip()
+    if not clean_id.isdigit():
+        return False, None, "App ID không hợp lệ!"
+
+    url = f"https://store.steampowered.com/app/{clean_id}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    timeout = aiohttp.ClientTimeout(total=10)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    html = await resp.text(errors="ignore")
+                    patterns = [
+                        r'https?://(?:www\.)?discord\.gg/[a-zA-Z0-9_\-]+',
+                        r'https?://(?:www\.)?discord\.com/invite/[a-zA-Z0-9_\-]+'
+                    ]
+                    found = []
+                    for pat in patterns:
+                        for m in re.findall(pat, html, re.IGNORECASE):
+                            if m not in found:
+                                found.append(m)
+                    if found:
+                        return True, found[0], f"Đã tìm thấy link Discord trên Steam: `{', '.join(found)}`"
+                    return False, None, "Chưa tìm thấy link Discord công khai trên trang Steam Store của game."
+                return False, None, f"Không thể đọc trang Steam Store (Mã HTTP `{resp.status}`)"
+    except Exception as e:
+        return False, None, f"Lỗi quét trang Steam: {e}"
+
+
+def generate_steam_proof_url(invite_code_or_url: str, proof_token: str) -> str:
+    """Sinh đường dẫn mời Discord có đính kèm mã Proof Token theo chuẩn Discord Developer Portal"""
+    clean_invite = invite_code_or_url.strip()
+    if clean_invite.startswith("https://discord.gg/"):
+        base = clean_invite
+    elif clean_invite.startswith("discord.gg/"):
+        base = f"https://{clean_invite}"
+    elif clean_invite.startswith("http"):
+        base = clean_invite
+    else:
+        base = f"https://discord.gg/{clean_invite}"
+
+    clean_proof = proof_token.strip()
+    if not clean_proof:
+        return base
+
+    delimiter = "&" if "?" in base else "?"
+    return f"{base}{delimiter}discord_proof={clean_proof}"
+
+
+def audit_guild_readiness(guild: discord.Guild) -> Tuple[int, str, List[dict]]:
+    """Đánh giá chi tiết mức độ sẵn sàng đạt chuẩn Verified Server của một Guild"""
+    features = guild.features
+    is_verified = "VERIFIED" in features
+    is_community = "COMMUNITY" in features
+    rules_ok = bool(guild.rules_channel)
+    updates_ok = bool(guild.public_updates_channel)
+    filter_ok = guild.explicit_content_filter == discord.ContentFilter.all_members
+    verif_ok = guild.verification_level.value >= 2  # Medium (2), High (3), or Very High (4)
+    mfa_ok = guild.mfa_level.value >= 1
+
+    checks = []
+    score = 0
+
+    if is_verified:
+        score = 100
+        checks.append({
+            "status": "PASS",
+            "title": "Huy Hiệu Verified Server",
+            "desc": "🌟 Máy chủ đã sở hữu huy hiệu Tích Xanh chính thức từ Discord!"
+        })
+    else:
+        # Community
+        if is_community:
+            score += 30
+            checks.append({"status": "PASS", "title": "Chế Độ Cộng Đồng (Community)", "desc": "Đã BẬT tính năng Community trong Server Settings."})
         else:
-            needed = 100 - total_rules
-            sv_needed = (needed + 5) // 6
-            msg = (
-                f"✅ Đã tạo thêm **{created_new} quy tắc mới**.\n"
-                f"📊 Tổng số quy tắc hiện có: **{total_rules}/100 rules** (Còn thiếu **{needed} rules**, khoảng **{sv_needed} server** nữa).\n"
-                f"👉 Hãy mời bot thêm vào các server của bạn và bấm lại nút này nhé!"
-            )
+            checks.append({"status": "FAIL", "title": "Chế Độ Cộng Đồng (Community)", "desc": "Chưa bật Community. Vào Server Settings > Enable Community."})
 
-        await interaction.followup.send(msg, ephemeral=True)
+        # Rules channel
+        if rules_ok:
+            score += 15
+            checks.append({"status": "PASS", "title": "Kênh Quy Định (#rules)", "desc": f"Đã cấu hình kênh quy định: <#{guild.rules_channel.id}>."})
+        else:
+            checks.append({"status": "WARN", "title": "Kênh Quy Định (#rules)", "desc": "Chưa chỉ định kênh quy định chính thức của Server."})
 
-    @discord.ui.button(
-        label="Kiểm Tra Tiến Độ",
-        emoji="🔍",
-        style=discord.ButtonStyle.secondary,
-        custom_id="automod_btn_check_status",
-        row=0
-    )
-    async def btn_check_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Updates channel
+        if updates_ok:
+            score += 15
+            checks.append({"status": "PASS", "title": "Kênh Thông Báo Cập Nhật", "desc": f"Đã cấu hình kênh thông báo: <#{guild.public_updates_channel.id}>."})
+        else:
+            checks.append({"status": "WARN", "title": "Kênh Thông Báo Cập Nhật", "desc": "Chưa chỉ định kênh thông báo cập nhật hệ thống."})
+
+        # Content filter
+        if filter_ok:
+            score += 15
+            checks.append({"status": "PASS", "title": "Bộ Lọc Hình Ảnh Nhạy Cảm", "desc": "Đã bật quét media toàn bộ thành viên (Mức cao nhất)."})
+        else:
+            checks.append({"status": "WARN", "title": "Bộ Lọc Hình Ảnh Nhạy Cảm", "desc": "Nên đặt Explicit Content Filter thành Quét toàn bộ thành viên."})
+
+        # Verification Level
+        if verif_ok:
+            score += 15
+            checks.append({"status": "PASS", "title": "Mức Xác Minh Thành Viên", "desc": f"Mức xác minh đạt chuẩn ({guild.verification_level.name.capitalize()})."})
+        else:
+            checks.append({"status": "WARN", "title": "Mức Xác Minh Thành Viên", "desc": f"Mức hiện tại là {guild.verification_level.name.capitalize()}. Khuyến nghị mức Medium (Tài khoản > 5 phút)."})
+
+        # 2FA
+        if mfa_ok:
+            score += 10
+            checks.append({"status": "PASS", "title": "Bảo Mật 2 Lớp (2FA)", "desc": "Yêu cầu 2FA cho quản trị viên đã được kích hoạt."})
+        else:
+            checks.append({"status": "INFO", "title": "Bảo Mật 2 Lớp (2FA)", "desc": "Khuyến nghị bật Yêu cầu 2FA cho vai trò Quản lý trong Server Settings."})
+
+    score = min(100, max(0, score))
+    if is_verified:
+        verdict = "ĐÃ SỞ HỮU TÍCH XANH 🟢"
+    elif score >= 85:
+        verdict = "SẴN SÀNG CLAIM GAME TRÊN DEV PORTAL 🚀"
+    elif score >= 50:
+        verdict = "CẦN HOÀN TẤT THÊM CẤU HÌNH ⚠️"
+    else:
+        verdict = "CHƯA ĐẠT CHUẨN COMMUNITY ❌"
+
+    return score, verdict, checks
+
+
+class SteamCheckModal(discord.ui.Modal):
+    """Cửa sổ Modal tra cứu Game trên Steam Store"""
+    def __init__(self):
+        super().__init__(title="🎮 Tra Cứu Game Trên Steam Store")
+        self.app_id_input = discord.ui.TextInput(
+            label="Steam App ID của Game",
+            placeholder="Ví dụ: 730 (CS2), 105600 (Terraria), 252490...",
+            min_length=1,
+            max_length=20,
+            required=True
+        )
+        self.add_item(self.app_id_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        bot_client: commands.Bot = interaction.client
-        token = bot_client.http.token
+        app_id = self.app_id_input.value.strip()
 
-        flags, is_public = await api_get_app_info(token)
-        has_badge = bool((flags & FLAG_AUTOMOD_BADGE) != 0)
-        total_rules = await count_total_automod_rules(bot_client)
-        guild_count = len(bot_client.guilds)
+        ok, game_data = await api_fetch_steam_game(app_id)
+        if not ok:
+            await interaction.followup.send(f"❌ **Lỗi tra cứu:** {game_data.get('error')}", ephemeral=True)
+            return
 
-        badge_status = "✅ ĐÃ SỞ HỮU HUY HIỆU!" if has_badge else ("⏳ ĐANG CHỜ DISCORD QUÉT (12-24h)" if total_rules >= 100 else "⚙️ ĐANG TIẾN HÀNH CÀY")
+        name = game_data.get("name", "Unknown Game")
+        developers = ", ".join(game_data.get("developers", ["Chưa rõ"]))
+        publishers = ", ".join(game_data.get("publishers", ["Chưa rõ"]))
+        release_date = game_data.get("release_date", {}).get("date", "Chưa rõ")
+        is_coming_soon = game_data.get("release_date", {}).get("coming_soon", False)
+        is_game = game_data.get("type", "").lower() == "game"
+        header_image = game_data.get("header_image", "")
+
+        # Quét link discord trên steam
+        f_ok, discord_link, link_msg = await api_check_steam_discord_link(app_id)
+
+        # Đánh giá điều kiện Game Claiming
+        eligible = is_game and not is_coming_soon
+        eligibility_text = "✅ ĐỦ ĐIỀU KIỆN CLAIM GAME (Playable Game)" if eligible else "❌ CHƯA ĐỦ ĐIỀU KIỆN (Đang ở trạng thái Coming Soon hoặc không phải Game độc lập)"
 
         embed = discord.Embed(
-            title="🔍 BÁO CÁO TIẾN TRÌNH HUY HIỆU USES AUTOMOD",
-            color=0x23A55A if has_badge or total_rules >= 100 else 0xF0B232
+            title=f"🎮 THÔNG TIN GAME STEAM: {name}",
+            description=(
+                f"> **Mã App ID:** `{app_id}`\n"
+                f"> **Trang Cửa Hàng:** [Bấm vào đây để mở](https://store.steampowered.com/app/{app_id}/)\n"
+                f"> **Đánh Giá Claim:** **{eligibility_text}**\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=0x23A55A if eligible else 0xED4245
         )
-        embed.add_field(name="🤖 Trạng Thái Huy Hiệu", value=f"**{badge_status}**", inline=False)
-        embed.add_field(name="🌐 Số Server Hiện Có", value=f"`{guild_count} / 17 server`", inline=True)
-        embed.add_field(name="🛡️ AutoMod Active Rules", value=f"`{total_rules} / 100 rules`", inline=True)
-        embed.add_field(name="🚩 Cờ Application Flags", value=f"`{flags}` (Bit 24: {'BẬT' if has_badge else 'TẮT'})", inline=True)
-        embed.add_field(name="⚙️ Public Bot", value="✅ Bật (Hợp lệ)" if is_public else "❌ Tắt (Cần bật trong Developer Portal)", inline=True)
 
+        embed.add_field(name="👨‍💻 Nhà Phát Triển", value=f"`{developers}`", inline=True)
+        embed.add_field(name="🏢 Nhà Phát Hành", value=f"`{publishers}`", inline=True)
+        embed.add_field(name="📅 Ngày Ra Mắt", value=f"`{release_date}`", inline=True)
+        embed.add_field(name="🔗 Quét Link Discord Trên Steam", value=f"> {link_msg}", inline=False)
+
+        if header_image:
+            embed.set_image(url=header_image)
+
+        embed.set_footer(text="Steam Store Inspector • Discord Verified Server Suite")
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+class ProofGeneratorModal(discord.ui.Modal):
+    """Cửa sổ Modal sinh đường dẫn Proof Token để đưa lên Steam Store"""
+    def __init__(self, default_invite: str = ""):
+        super().__init__(title="🔗 Tạo Link Proof Xác Minh Steam")
+        self.invite_input = discord.ui.TextInput(
+            label="Đường Dẫn Mời Discord (Server Invite Link)",
+            placeholder="Ví dụ: https://discord.gg/yourgame",
+            default=default_invite,
+            min_length=5,
+            max_length=120,
+            required=True
+        )
+        self.proof_input = discord.ui.TextInput(
+            label="Mã Proof Token (Từ Discord Developer Portal)",
+            placeholder="Dán chuỗi Proof tạm thời Discord cấp cho bạn khi Claim...",
+            min_length=1,
+            max_length=150,
+            required=True
+        )
+        self.add_item(self.invite_input)
+        self.add_item(self.proof_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        invite = self.invite_input.value.strip()
+        proof = self.proof_input.value.strip()
+
+        final_url = generate_steam_proof_url(invite, proof)
+
+        embed = discord.Embed(
+            title="🔗 LIÊN KẾT PROOF XÁC MINH SỞ HỮU THÀNH CÔNG",
+            description=(
+                f"> ### 📋 Đường Dẫn Hoàn Chỉnh Để Dán Lên Steam:\n"
+                f"```text\n{final_url}\n```\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "**📌 Hướng Dẫn Các Bước Dán Lên Steamworks Partner:**\n"
+                "> 1. Đăng nhập vào [Steamworks Partner Backend](https://partner.steamgames.com/).\n"
+                "> 2. Chọn Game của bạn > **Edit Store Page (Sửa trang cửa hàng)**.\n"
+                "> 3. Tìm mục **Basic Info** hoặc **External Links (Liên kết ngoài)**.\n"
+                "> 4. Dán đường dẫn Proof ở khung code phía trên vào mục Discord URL.\n"
+                "> 5. Bấm **Publish Store Changes**, sau đó quay lại Developer Portal bấm **Submit Claim**!"
+            ),
+            color=0x23A55A
+        )
+        embed.set_footer(text="Discord Verified Server Suite • 100% An Toàn & Chuẩn Xác")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+def create_verified_server_embed(guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None) -> discord.Embed:
+    """Tạo Embed giao diện Verified Server Hub theo phong cách VIP đồng bộ NCT Hub"""
+    guild_name = guild.name if guild else "Máy Chủ Discord"
+    server_icon = guild.icon.url if guild and guild.icon else (client.user.display_avatar.url if client and client.user else "https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png")
+
+    # Kiểm tra trạng thái hiện tại
+    is_verified = "VERIFIED" in guild.features if guild else False
+    is_community = "COMMUNITY" in guild.features if guild else False
+    score = 100 if is_verified else (audit_guild_readiness(guild)[0] if guild else 0)
+
+    embed = discord.Embed(
+        title="🟢 DISCORD VERIFIED SERVER • BẢNG ĐIỀU KHIỂN & AUDIT TÍCH XANH",
+        description=(
+            "> ### ✨ MỞ KHÓA TÍCH XANH LÁ CÂY • NÂNG TẦM SERVER GAME!\n"
+            "> Bộ công cụ kiểm định chuẩn hóa máy chủ, hỗ trợ Steam Game Claiming và giám sát tự động "
+            "để mở khóa Huy hiệu **Verified Server** (cờ `VERIFIED`) chính thức từ Discord dành cho Game Creators!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0x23A55A  # Discord Green
+    )
+
+    embed.set_author(
+        name=f"⚡ {guild_name} • Official Verified Server Hub",
+        icon_url=server_icon
+    )
+
+    # 3 Cột thống kê thời gian thực
+    badge_status = "ĐÃ ĐẠT (Tích Xanh 🟢)" if is_verified else "ĐANG CHỜ CLAIM (⏳)"
+    community_status = "ĐÃ BẬT (Community)" if is_community else "CHƯA BẬT (Cần Bật)"
+    readiness_status = f"{score}% / 100% Sẵn Sàng"
+
+    embed.add_field(
+        name="🛡️ Huy Hiệu Tích Xanh",
+        value=(
+            "> **Châm ngôn:** Verified Server\n"
+            "> **Mã cờ:** `VERIFIED`\n"
+            f"> **Trạng thái:** `{badge_status}`"
+        ),
+        inline=True
+    )
+    embed.add_field(
+        name="🌐 Chế Độ Cộng Đồng",
+        value=(
+            "> **Châm ngôn:** Community Guild\n"
+            "> **Yêu cầu:** Bắt buộc có\n"
+            f"> **Trạng thái:** `{community_status}`"
+        ),
+        inline=True
+    )
+    embed.add_field(
+        name="📊 Điểm Sẵn Sàng",
+        value=(
+            "> **Châm ngôn:** Readiness Score\n"
+            "> **Tiêu chuẩn:** Discord Audit\n"
+            f"> **Tỷ lệ:** `{readiness_status}`"
+        ),
+        inline=True
+    )
+
+    embed.add_field(
+        name="👑 Lộ Trình 5 Bước Đạt Chuẩn Verified Server:",
+        value=(
+            "> • **Bước 1 (Game Steam):** Sở hữu tựa game Playable (Early Access / Đã ra mắt) trên Steam.\n"
+            "> • **Bước 2 (Developer Team):** Tạo Team tại [Developer Portal/Teams](https://discord.com/developers/teams) & thêm **Chủ Server** làm thành viên.\n"
+            "> • **Bước 3 (Auto-Setup & Audit):** Bấm nút **[⚡ Auto-Setup Kênh]** và **[🔍 Audit Máy Chủ]** bên dưới để đạt 100% điểm chuẩn.\n"
+            "> • **Bước 4 (Gắn Link Proof):** Bấm nút **[🔗 Tạo Link Proof]** để lấy link dán vào phần liên kết Steam Store.\n"
+            "> • **Bước 5 (Claim Game):** Vào Developer Portal > Game Identity > **Claim your game** & xác thực OTP email để nhận Tích Xanh!"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="⚡ Các Nút Thao Tác Nhanh:",
+        value=(
+            "> 👉 **Bấm vào một trong các nút bên dưới** để kiểm tra máy chủ, tra cứu Steam hoặc tạo link Proof!\n"
+            "-# 🔒 Chuẩn Discord REST API v10 • Hỗ trợ Game Creators 100% An Toàn"
+        ),
+        inline=False
+    )
+
+    embed.set_thumbnail(url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png")
+
+    banner_url = CONFIG.get("banner_url", "").strip() or "https://raw.githubusercontent.com/truong2903/bot_discord/main/banner.png"
+    embed.set_image(url=banner_url)
+
+    embed.set_footer(
+        text="Verified Server System v2.0 • Hoạt động 24/7 • Chuẩn Discord API v10",
+        icon_url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+    )
+    return embed
+
+
+class VerifiedServerPanelView(discord.ui.View):
+    """View chứa các nút bấm điều khiển Verified Server Hub vĩnh viễn (Persistent View)"""
+
+    def __init__(self, bot_client: Optional[commands.Bot] = None):
+        super().__init__(timeout=None)
+        # Nút Link ngoài mở Developer Portal
+        self.add_item(discord.ui.Button(
+            label="Discord Developer Portal",
+            style=discord.ButtonStyle.link,
+            url="https://discord.com/developers/applications",
+            emoji="🚀",
+            row=1
+        ))
+
+    @discord.ui.button(
+        label="Audit Máy Chủ",
+        emoji="🔍",
+        style=discord.ButtonStyle.secondary,
+        custom_id="verified_btn_audit",
+        row=0
+    )
+    async def btn_audit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ Lệnh này chỉ sử dụng được trong Máy Chủ (Server)!", ephemeral=True)
+            return
+
+        score, verdict, checks = audit_guild_readiness(guild)
+
+        embed = discord.Embed(
+            title=f"🔍 BÁO CÁO AUDIT TIÊU CHUẨN: {guild.name}",
+            description=(
+                f"> **Điểm Sẵn Sàng:** `{score}% / 100%`\n"
+                f"> **Kết Luận:** **{verdict}**\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=0x23A55A if score >= 80 else 0xF0B232
+        )
+
+        for c in checks:
+            icon = "✅" if c["status"] == "PASS" else ("⚠️" if c["status"] == "WARN" else ("ℹ️" if c["status"] == "INFO" else "❌"))
+            embed.add_field(
+                name=f"{icon} {c['title']}",
+                value=f"> {c['desc']}",
+                inline=False
+            )
+
+        vanity_text = f"discord.gg/{guild.vanity_url_code}" if guild.vanity_url_code else "Chưa có"
+        embed.add_field(name="👥 Thành Viên", value=f"`{guild.member_count} người`", inline=True)
+        embed.add_field(name="🔗 Vanity URL", value=f"`{vanity_text}`", inline=True)
+        embed.add_field(name="✨ Features", value=f"`{len(guild.features)} cờ active`", inline=True)
+
+        embed.set_footer(text="Verified Server Auditor • Discord REST API v10")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @discord.ui.button(
+        label="Auto-Setup Kênh & Bảo Mật",
+        emoji="⚡",
+        style=discord.ButtonStyle.success,
+        custom_id="verified_btn_setup",
+        row=0
+    )
+    async def btn_setup(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("❌ Lệnh này chỉ sử dụng được trong Máy Chủ (Server)!", ephemeral=True)
+            return
+
+        if not guild.me.guild_permissions.manage_channels:
+            await interaction.followup.send("⚠️ Bot thiếu quyền **Quản Lý Kênh (Manage Channels)** để tự động tạo cấu trúc kênh!", ephemeral=True)
+            return
+
+        standard_channels = [
+            {"name": "rules-and-info", "type": discord.ChannelType.text, "topic": "Quy định máy chủ & Giới thiệu Game chính thức"},
+            {"name": "game-announcements", "type": discord.ChannelType.news if "COMMUNITY" in guild.features else discord.ChannelType.text, "topic": "Thông báo chính thức từ đội ngũ phát triển Game (News/Updates)"},
+            {"name": "patch-notes", "type": discord.ChannelType.text, "topic": "Nhật ký cập nhật phiên bản, bản vá và tính năng mới của Game"},
+            {"name": "community-chat", "type": discord.ChannelType.text, "topic": "Kênh trò chuyện, thảo luận chung cho cộng đồng người chơi"},
+            {"name": "bug-reports", "type": discord.ChannelType.text, "topic": "Báo cáo lỗi, phản hồi trải nghiệm và đóng góp ý kiến cho Game"}
+        ]
+
+        created = []
+        existing = []
+
+        for spec in standard_channels:
+            found_chan = None
+            for c in guild.text_channels:
+                if spec["name"] in c.name or c.name in spec["name"]:
+                    found_chan = c
+                    break
+
+            if found_chan:
+                existing.append(f"#{found_chan.name}")
+            else:
+                try:
+                    new_chan = await guild.create_text_channel(
+                        name=spec["name"],
+                        topic=spec["topic"],
+                        reason="Verified Server Community Setup"
+                    )
+                    created.append(f"#{new_chan.name}")
+                except Exception as e:
+                    print(f"Lỗi tạo kênh {spec['name']}: {e}")
+
+        # Cập nhật cài đặt server nếu có quyền Manage Guild
+        sec_msg = ""
+        if guild.me.guild_permissions.manage_guild:
+            try:
+                await guild.edit(
+                    explicit_content_filter=discord.ContentFilter.all_members,
+                    verification_level=discord.VerificationLevel.medium,
+                    reason="Verified Server Security Standardization"
+                )
+                sec_msg = "\n🔒 **Đã nâng cấp bảo mật:** Explicit Media Filter = Toàn bộ thành viên, Verification = Medium."
+            except Exception as e:
+                sec_msg = f"\n⚠️ Không thể đổi cấu hình guild: {e}"
+
+        created_text = ", ".join(created) if created else "Không có (Đã có sẵn)"
+        existing_text = ", ".join(existing) if existing else "Không có"
+
+        res_msg = (
+            f"🎉 **HOÀN TẤT THIẾT LẬP CHUẨN COMMUNITY!**\n"
+            f"> • **Kênh mới tạo:** `{created_text}`\n"
+            f"> • **Kênh đã có sẵn:** `{existing_text}`"
+            f"{sec_msg}\n\n"
+            f"👉 Bây giờ bạn có thể bấm **[🔍 Audit Máy Chủ]** để kiểm tra lại điểm sẵn sàng!"
+        )
+        await interaction.followup.send(res_msg, ephemeral=True)
+
+    @discord.ui.button(
+        label="Tra Cứu Steam Game",
+        emoji="🎮",
+        style=discord.ButtonStyle.primary,
+        custom_id="verified_btn_steam",
+        row=0
+    )
+    async def btn_steam(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SteamCheckModal())
+
+    @discord.ui.button(
+        label="Tạo Link Proof Steam",
+        emoji="🔗",
+        style=discord.ButtonStyle.secondary,
+        custom_id="verified_btn_proof",
+        row=1
+    )
+    async def btn_proof(self, interaction: discord.Interaction, button: discord.ui.Button):
+        default_invite = ""
+        if interaction.guild:
+            if interaction.guild.vanity_url_code:
+                default_invite = f"https://discord.gg/{interaction.guild.vanity_url_code}"
+            else:
+                try:
+                    invites = await interaction.guild.invites()
+                    if invites:
+                        default_invite = invites[0].url
+                except Exception:
+                    pass
+        await interaction.response.send_modal(ProofGeneratorModal(default_invite=default_invite))
+
+    @discord.ui.button(
+        label="Cẩm Nang Claim A-Z",
+        emoji="📖",
+        style=discord.ButtonStyle.secondary,
+        custom_id="verified_btn_guide",
+        row=1
+    )
+    async def btn_guide(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📖 CẨM NANG TOÀN TẬP: QUY TRÌNH GAME CLAIMING LẤY TÍCH XANH",
+            description=(
+                "> ### 🌟 5 BƯỚC ĐẠT HUY HIỆU VERIFIED SERVER TỪ DISCORD:\n\n"
+                "**1️⃣ Bước 1: Game Playable trên Steam**\n"
+                "> Tựa game phải ở trạng thái đang mở chơi được trên Steam (**Early Access** hoặc **Full Release**). Các game ở chế độ Coming Soon hoặc Demo sẽ không được duyệt.\n\n"
+                "**2️⃣ Bước 2: Tạo Discord Developer Team**\n"
+                "> Truy cập [Developer Portal Teams](https://discord.com/developers/teams), tạo một Team và **thêm Chủ Server (Server Owner)** vào làm thành viên của Team này.\n\n"
+                "**3️⃣ Bước 3: Đưa Link Discord lên Steam Store**\n"
+                "> Vào Steamworks Partner Backend > Sửa trang Store của Game > Thêm link mời Discord vào phần liên kết bên ngoài.\n\n"
+                "**4️⃣ Bước 4: Thực Hiện Claim Game Trên Developer Portal**\n"
+                "> Vào Application của game > Mục **Game Identity** > Bấm **Claim your game**. Chọn game Steam và server Discord của bạn, dán mã Proof tạm thời vào Steam và xác nhận mã OTP gửi về Email của Server Owner.\n\n"
+                "**5️⃣ Bước 5: Phê Duyệt & Nhận Tích Xanh**\n"
+                "> Discord đối soát và tự động cấp cờ `VERIFIED` vĩnh viễn: Xuất hiện huy hiệu Tích Xanh 🟢, mở khóa Vanity URL miễn phí, Server Banner và Game Profile Card!"
+            ),
+            color=0x5865F2
+        )
+        embed.set_footer(text="Discord Developer Portal • Game Identity Program")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None) -> discord.Embed:
@@ -790,6 +1291,7 @@ async def on_ready():
     # Đăng ký Persistent View để các nút bấm hoạt động mãi mãi kể cả khởi động lại bot
     bot.add_view(HypeSquadPanelView())
     bot.add_view(AutoModPanelView())
+    bot.add_view(VerifiedServerPanelView())
 
     # Đồng bộ Slash Commands
     guild_id = os.getenv("GUILD_ID", "").strip() or CONFIG.get("guild_id")
@@ -811,6 +1313,7 @@ async def on_ready():
     print(f" • Lệnh khả dụng:")
     print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET}  : Gửi bảng điều khiển HypeSquad có NÚT BẤM tương tác")
     print(f"   - {Colors.CYAN}/tao_sever{Colors.RESET}        : Mở bảng điều khiển kích hoạt 100+ rules AutoMod Badge")
+    print(f"   - {Colors.CYAN}/verified_server{Colors.RESET}  : Bảng điều khiển kiểm định & hỗ trợ lấy Verified Server Badge (Tích Xanh 🟢)")
     print(f"   - {Colors.CYAN}/ping{Colors.RESET}             : Kiểm tra phản hồi bot")
     print(f"{Colors.GREEN}====================================================================={Colors.RESET}\n")
 
@@ -869,6 +1372,38 @@ async def cmd_panel(interaction: discord.Interaction):
     await interaction.response.send_message("✅ Đã gửi bảng điều khiển HypeSquad thành công!", ephemeral=True)
 
 
+async def handle_verified_server(interaction: discord.Interaction):
+    """Xử lý lệnh /verified_server hoặc /verified_panel"""
+    await interaction.response.defer(ephemeral=False)
+    bot_client: commands.Bot = interaction.client
+    guild = interaction.guild
+
+    embed = create_verified_server_embed(guild=guild, client=bot_client)
+    view = VerifiedServerPanelView(bot_client=bot_client)
+
+    banner_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "banner.png")
+    if os.path.exists(banner_path):
+        banner_file = discord.File(banner_path, filename="banner.png")
+        embed.set_image(url="attachment://banner.png")
+        await interaction.channel.send(embed=embed, file=banner_file, view=view)
+    else:
+        await interaction.channel.send(embed=embed, view=view)
+
+    await interaction.followup.send("✅ Đã mở bảng điều khiển Verified Server Hub thành công!", ephemeral=True)
+
+
+@bot.tree.command(name="verified_server", description="Mở bảng điều khiển kiểm định & hỗ trợ lấy huy hiệu Verified Server (Tích Xanh 🟢)")
+@app_commands.default_permissions(manage_guild=True)
+async def cmd_verified_server(interaction: discord.Interaction):
+    await handle_verified_server(interaction)
+
+
+@bot.tree.command(name="verified_panel", description="Mở bảng điều khiển kiểm định & hỗ trợ lấy huy hiệu Verified Server (Tích Xanh 🟢)")
+@app_commands.default_permissions(manage_guild=True)
+async def cmd_verified_panel(interaction: discord.Interaction):
+    await handle_verified_server(interaction)
+
+
 @bot.tree.command(name="ping", description="Kiểm tra độ trễ phản hồi của Bot")
 async def cmd_ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
@@ -878,8 +1413,8 @@ async def cmd_ping(interaction: discord.Interaction):
 def banner():
     print(f"""{Colors.CYAN}
   ╔═══════════════════════════════════════════════════════════╗
-  ║       🌟 DISCORD HYPESQUAD SELECTOR BOT PRO               ║
-  ║  Hệ thống Embed & Nút Bấm Tương Tác Chọn Huy Hiệu         ║
+  ║       🌟 DISCORD MULTI-FUNCTION BOT PRO (NCT HUB)         ║
+  ║  HypeSquad 💜 • AutoMod 🛡️ • Verified Server Suite 🟢    ║
   ╚═══════════════════════════════════════════════════════════╝{Colors.RESET}
 """)
 
