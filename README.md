@@ -79,10 +79,23 @@ Mở file `config.json` và dán Token vào:
 
 ## 🎮 Cách Sử Dụng Trong Discord
 
-1. Vào kênh bất kỳ trong server (nơi bạn muốn đặt bảng chọn nhà).
-2. Gõ lệnh:
-   ```text
-   /hypesquad-panel
-   ```
-3. Bot sẽ gửi ngay bảng điều khiển Embed lộng lẫy kèm các nút bấm tương tác.
-4. Bất kỳ ai trong server bấm vào nút nhà nào đều sẽ nhận được vai trò và hướng dẫn kích hoạt huy hiệu tương ứng!
+### 1. Bảng Chọn Huy Hiệu HypeSquad
+* Gõ lệnh:
+  ```text
+  /hypesquad-panel
+  ```
+* Bot sẽ gửi ngay bảng điều khiển Embed HypeSquad kèm các nút bấm tương tác (Bravery, Brilliance, Balance, Gỡ).
+
+### 2. Tự Động Tạo Server & Bảng Điều Khiển AutoMod Badge
+* Gõ lệnh:
+  ```text
+  /tao_sever
+  ```
+  *(hoặc `/tao_server`)*
+* **Cơ chế hoạt động:**
+  - Bot sẽ tự động gọi API tạo **10 server test** (nếu bot đang dưới 10 server) và nạp sẵn 6 quy tắc AutoMod cho từng server.
+  - Bot gửi bảng điều khiển Embed chuẩn phong cách Pro VIP kèm 4 nút bấm tương tác:
+    - `[⚡ Tạo 10 Server Test]`: Tự động khởi tạo server test qua Bot API.
+    - `[🚀 Triển Khai 100+ Rules]`: Tự động quét và đẩy đủ 102 quy tắc AutoMod lên tất cả server.
+    - `[🔍 Kiểm Tra Tiến Độ]`: Xem báo cáo cờ `16777216`, số lượng server và rules active theo thời gian thực.
+    - `[🔗 Mời Bot Vào Server]`: Link mời bot với quyền Quản trị viên để thêm vào các server còn lại.

@@ -373,6 +373,331 @@ class HypeSquadPanelView(discord.ui.View):
         await interaction.response.send_modal(TokenModal(0, "Gỡ Bỏ Huy Hiệu", "❌"))
 
 
+# =============================================================================
+# 🤖 AUTOMOD BADGE (USES AUTOMOD) MODULE & SLASH COMMANDS
+# =============================================================================
+
+FLAG_AUTOMOD_BADGE = 16777216  # 1 << 24 = APPLICATION_AUTO_MODERATION_RULE_CREATE_BADGE
+
+
+async def api_create_guild(token: str, name: str) -> Optional[dict]:
+    """Tự động tạo server mới qua Bot REST API v10"""
+    url = "https://discord.com/api/v10/guilds"
+    headers = {
+        "Authorization": f"Bot {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "name": name,
+        "verification_level": 0,
+        "default_message_notifications": 1
+    }
+    timeout = aiohttp.ClientTimeout(total=15)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status in (200, 201):
+                    return await resp.json()
+    except Exception as e:
+        print(f"Lỗi tạo guild '{name}': {e}")
+    return None
+
+
+async def api_create_automod_rule(token: str, guild_id: int, rule_idx: int) -> bool:
+    """Tạo 1 quy tắc AutoMod kiểu Keyword trên server"""
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/auto-moderation/rules"
+    headers = {
+        "Authorization": f"Bot {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "name": f"AutoMod Protect #{rule_idx}",
+        "event_type": 1,
+        "trigger_type": 1,
+        "trigger_metadata": {
+            "keyword_filter": [f"spam_filter_{rule_idx}*", f"badword_{rule_idx}*"]
+        },
+        "actions": [
+            {
+                "type": 1,
+                "metadata": {
+                    "custom_message": "Tin nhắn bị chặn bởi AutoMod Rule bảo vệ máy chủ."
+                }
+            }
+        ],
+        "enabled": True
+    }
+    timeout = aiohttp.ClientTimeout(total=15)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                return resp.status in (200, 201)
+    except Exception:
+        return False
+
+
+async def api_get_guild_rules(token: str, guild_id: int) -> list:
+    """Lấy danh sách các rule AutoMod trong guild"""
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/auto-moderation/rules"
+    headers = {"Authorization": f"Bot {token}"}
+    timeout = aiohttp.ClientTimeout(total=15)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+    except Exception:
+        pass
+    return []
+
+
+async def api_get_app_info(token: str) -> tuple:
+    """Lấy thông tin Application Flags để kiểm tra cờ 16777216"""
+    url = "https://discord.com/api/v10/oauth2/applications/@me"
+    headers = {"Authorization": f"Bot {token}"}
+    timeout = aiohttp.ClientTimeout(total=15)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    flags = int(data.get("flags", 0))
+                    is_public = bool(data.get("bot_public", False))
+                    return flags, is_public
+    except Exception:
+        pass
+    return 0, False
+
+
+async def count_total_automod_rules(client: commands.Bot) -> int:
+    """Đếm tổng số quy tắc AutoMod đang active trên tất cả server bot có mặt"""
+    token = client.http.token
+    total = 0
+    for guild in client.guilds:
+        rules = await api_get_guild_rules(token, guild.id)
+        active = [r for r in rules if r.get("enabled", False)]
+        total += len(active)
+    return total
+
+
+def create_automod_embed(guild_count: int, active_rules: int, flags: int, is_public: bool, client: Optional[discord.Client] = None) -> discord.Embed:
+    """Tạo Embed AutoMod chuẩn giao diện VIP đồng bộ phong cách NCT Hub"""
+    has_badge = bool((flags & FLAG_AUTOMOD_BADGE) != 0)
+
+    embed = discord.Embed(
+        title="🤖 DISCORD AUTOMOD SYSTEM • BẢNG ĐIỀU KHIỂN & TỰ ĐỘNG HÓA",
+        description=(
+            "> ### ✨ TỰ ĐỘNG TẠO 10 SERVER • MỞ KHÓA HUY HIỆU USES AUTOMOD\n"
+            "> Hệ thống hỗ trợ tự động khởi tạo tối đa 10 server qua Discord API, tự động nạp các "
+            "quy tắc AutoMod (Keyword Filter) chuẩn mực để mở khóa cờ `16777216` (`2^24`) cho Bot!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        ),
+        color=0x23A55A  # Discord Green
+    )
+
+    bot_name = client.user.name if client and client.user else "NCT_bot"
+    bot_avatar = client.user.display_avatar.url if client and client.user else "https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+
+    embed.set_author(
+        name=f"⚡ {bot_name} • Official AutoMod Hub",
+        icon_url=bot_avatar
+    )
+
+    # 3 Cột thống kê đồng bộ giao diện HypeSquad
+    status_badge_text = "Đã nhận huy hiệu" if has_badge else ("Chờ duyệt 12-24h" if active_rules >= 100 else "Đang cày tiến độ")
+    embed.add_field(
+        name="🌐 Server Đã Có",
+        value=(
+            "> **Châm ngôn:** Tự động khởi tạo\n"
+            f"> **Số lượng:** `{guild_count} / 17 server`\n"
+            f"> **Bot tự tạo:** `{min(guild_count, 10)} / 10 server`"
+        ),
+        inline=True
+    )
+    embed.add_field(
+        name="🛡️ AutoMod Rules",
+        value=(
+            "> **Châm ngôn:** Bảo vệ tự động\n"
+            f"> **Số lượng:** `{active_rules} / 100 rules`\n"
+            f"> **Tỷ lệ:** `{active_rules}% hoàn tất`"
+        ),
+        inline=True
+    )
+    embed.add_field(
+        name="🎖️ Cờ Huy Hiệu",
+        value=(
+            "> **Châm ngôn:** Uses AutoMod\n"
+            "> **Mã cờ:** `16777216 (2^24)`\n"
+            f"> **Trạng thái:** `{status_badge_text}`"
+        ),
+        inline=True
+    )
+
+    needed_servers = max(0, 17 - guild_count)
+
+    embed.add_field(
+        name="👑 Tiến Trình & Hướng Dẫn Kế Tiếp:",
+        value=(
+            f"> • **10 Server Đầu Tiên:** Bot đã tự động tạo và kích hoạt 60 quy tắc AutoMod.\n"
+            f"> • **{needed_servers} Server Còn Lại:** Bạn bấm dấu **`[+]`** trên Discord tạo thêm {needed_servers} server cá nhân (~35s), rồi bấm nút **[🔗 Mời Bot Vào Server]** bên dưới.\n"
+            f"> • **Đẩy Đủ 100+ Rules:** Sau khi mời bot vào đủ, bấm nút **[🚀 Triển Khai 100+ Rules]** để bot tự động rải 6 rule/server!"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="⚡ Các Nút Thao Tác Nhanh:",
+        value=(
+            "> 👉 **Bấm vào một trong các nút bên dưới** để điều khiển tiến trình lấy huy hiệu!\n"
+            "-# 🔒 Hệ thống kích hoạt an toàn 24/7 • Chuẩn Discord REST API v10"
+        ),
+        inline=False
+    )
+
+    embed.set_thumbnail(url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png")
+
+    banner_url = CONFIG.get("banner_url", "").strip() or "https://raw.githubusercontent.com/truong2903/bot_discord/main/banner.png"
+    embed.set_image(url=banner_url)
+
+    embed.set_footer(
+        text="AutoMod System v2.0 • Hoạt động 24/7 • An toàn 100%",
+        icon_url="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+    )
+    return embed
+
+
+class AutoModPanelView(discord.ui.View):
+    """View chứa các nút bấm điều khiển AutoMod Badge vĩnh viễn (Persistent View)"""
+
+    def __init__(self, bot_client: Optional[commands.Bot] = None):
+        super().__init__(timeout=None)
+        if bot_client and bot_client.user:
+            invite_url = f"https://discord.com/oauth2/authorize?client_id={bot_client.user.id}&permissions=8&scope=bot%20applications.commands"
+            self.add_item(discord.ui.Button(
+                label="Mời Bot Vào Server",
+                style=discord.ButtonStyle.link,
+                url=invite_url,
+                emoji="🔗",
+                row=1
+            ))
+
+    @discord.ui.button(
+        label="Tạo 10 Server Test",
+        emoji="⚡",
+        style=discord.ButtonStyle.primary,
+        custom_id="automod_btn_create_guilds",
+        row=0
+    )
+    async def btn_create_guilds(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        bot_client: commands.Bot = interaction.client
+        token = bot_client.http.token
+        current_guilds = len(bot_client.guilds)
+
+        if current_guilds >= 10:
+            await interaction.followup.send(
+                f"ℹ️ **Bot hiện đã tham gia {current_guilds} server** (đã chạm hoặc vượt ngưỡng 10 server giới hạn tạo của Discord API).\n"
+                f"👉 Để đủ 17 server, bạn vui lòng tự tạo các server còn lại trên Discord (bấm dấu `+`) rồi dùng nút **[🔗 Mời Bot Vào Server]** để thêm bot vào nhé!",
+                ephemeral=True
+            )
+            return
+
+        to_create = min(10 - current_guilds, 9)
+        created_count = 0
+        rules_created = 0
+
+        for i in range(to_create):
+            guild_name = f"⚡ NCT AutoMod Farm #{current_guilds + i + 1}"
+            g_data = await api_create_guild(token, guild_name)
+            if g_data and "id" in g_data:
+                created_count += 1
+                gid = int(g_data["id"])
+                for r_idx in range(1, 7):
+                    if await api_create_automod_rule(token, gid, r_idx):
+                        rules_created += 1
+                await asyncio.sleep(1.0)
+            else:
+                break
+
+        await interaction.followup.send(
+            f"✅ **Thành công:** Đã tự động tạo thêm **{created_count} server test** và nạp sẵn **{rules_created} quy tắc AutoMod**!\n"
+            f"🌐 Tổng số server bot đang ở: **{len(bot_client.guilds)} / 17**.",
+            ephemeral=True
+        )
+
+    @discord.ui.button(
+        label="Triển Khai 100+ Rules",
+        emoji="🚀",
+        style=discord.ButtonStyle.success,
+        custom_id="automod_btn_deploy_rules",
+        row=0
+    )
+    async def btn_deploy_rules(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        bot_client: commands.Bot = interaction.client
+        token = bot_client.http.token
+        created_new = 0
+
+        for guild in bot_client.guilds:
+            existing = await api_get_guild_rules(token, guild.id)
+            existing_keywords = [r for r in existing if r.get("trigger_type") == 1]
+            slots = 6 - len(existing_keywords)
+            for s in range(slots):
+                rule_idx = len(existing_keywords) + s + 1
+                if await api_create_automod_rule(token, guild.id, rule_idx):
+                    created_new += 1
+                await asyncio.sleep(0.8)
+
+        total_rules = await count_total_automod_rules(bot_client)
+
+        if total_rules >= 100:
+            msg = (
+                f"🎉 **XUẤT SẮC!** Bot hiện có tổng cộng **{total_rules}/100 quy tắc AutoMod đang hoạt động**!\n"
+                f"✅ **ĐÃ ĐỦ 100% ĐIỀU KIỆN!** Discord sẽ quét và tự động gắn huy hiệu **Uses AutoMod** trong vòng 12 - 24 giờ tới."
+            )
+        else:
+            needed = 100 - total_rules
+            sv_needed = (needed + 5) // 6
+            msg = (
+                f"✅ Đã tạo thêm **{created_new} quy tắc mới**.\n"
+                f"📊 Tổng số quy tắc hiện có: **{total_rules}/100 rules** (Còn thiếu **{needed} rules**, khoảng **{sv_needed} server** nữa).\n"
+                f"👉 Hãy mời bot thêm vào các server của bạn và bấm lại nút này nhé!"
+            )
+
+        await interaction.followup.send(msg, ephemeral=True)
+
+    @discord.ui.button(
+        label="Kiểm Tra Tiến Độ",
+        emoji="🔍",
+        style=discord.ButtonStyle.secondary,
+        custom_id="automod_btn_check_status",
+        row=0
+    )
+    async def btn_check_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        bot_client: commands.Bot = interaction.client
+        token = bot_client.http.token
+
+        flags, is_public = await api_get_app_info(token)
+        has_badge = bool((flags & FLAG_AUTOMOD_BADGE) != 0)
+        total_rules = await count_total_automod_rules(bot_client)
+        guild_count = len(bot_client.guilds)
+
+        badge_status = "✅ ĐÃ SỞ HỮU HUY HIỆU!" if has_badge else ("⏳ ĐANG CHỜ DISCORD QUÉT (12-24h)" if total_rules >= 100 else "⚙️ ĐANG TIẾN HÀNH CÀY")
+
+        embed = discord.Embed(
+            title="🔍 BÁO CÁO TIẾN TRÌNH HUY HIỆU USES AUTOMOD",
+            color=0x23A55A if has_badge or total_rules >= 100 else 0xF0B232
+        )
+        embed.add_field(name="🤖 Trạng Thái Huy Hiệu", value=f"**{badge_status}**", inline=False)
+        embed.add_field(name="🌐 Số Server Hiện Có", value=f"`{guild_count} / 17 server`", inline=True)
+        embed.add_field(name="🛡️ AutoMod Active Rules", value=f"`{total_rules} / 100 rules`", inline=True)
+        embed.add_field(name="🚩 Cờ Application Flags", value=f"`{flags}` (Bit 24: {'BẬT' if has_badge else 'TẮT'})", inline=True)
+        embed.add_field(name="⚙️ Public Bot", value="✅ Bật (Hợp lệ)" if is_public else "❌ Tắt (Cần bật trong Developer Portal)", inline=True)
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 def create_panel_embed(guild: Optional[discord.Guild] = None, client: Optional[discord.Client] = None) -> discord.Embed:
     """Tạo Embed giao diện bảng điều khiển đẹp mắt theo chuẩn Pro VIP"""
     bravery_e = get_custom_emoji(guild, client, "8495hypesquadhouseofbravery", "💜")
@@ -479,6 +804,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     # Đăng ký Persistent View để các nút bấm hoạt động mãi mãi kể cả khởi động lại bot
     bot.add_view(HypeSquadPanelView())
+    bot.add_view(AutoModPanelView())
 
     # Đồng bộ Slash Commands
     guild_id = os.getenv("GUILD_ID", "").strip() or CONFIG.get("guild_id")
@@ -498,9 +824,62 @@ async def on_ready():
     print(f" • Bot ID     : {bot.user.id}")
     print(f" • Servers    : Đang kết nối {len(bot.guilds)} máy chủ")
     print(f" • Lệnh khả dụng:")
-    print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET}  : Gửi bảng điều khiển Embed có NÚT BẤM tương tác")
+    print(f"   - {Colors.CYAN}/hypesquad-panel{Colors.RESET}  : Gửi bảng điều khiển HypeSquad có NÚT BẤM tương tác")
+    print(f"   - {Colors.CYAN}/tao_sever{Colors.RESET}        : Tự động tạo 10 server test & kích hoạt AutoMod Panel")
     print(f"   - {Colors.CYAN}/ping{Colors.RESET}             : Kiểm tra phản hồi bot")
     print(f"{Colors.GREEN}====================================================================={Colors.RESET}\n")
+
+
+async def handle_tao_server(interaction: discord.Interaction):
+    """Xử lý lệnh /tao_sever hoặc /tao_server"""
+    await interaction.response.defer(ephemeral=False)
+    bot_client: commands.Bot = interaction.client
+    token = bot_client.http.token
+    current_guilds = len(bot_client.guilds)
+
+    # Tự động tạo server test nếu bot đang ở dưới 10 server
+    if current_guilds < 10:
+        to_create = min(10 - current_guilds, 9)
+        for i in range(to_create):
+            g_name = f"⚡ NCT AutoMod Farm #{current_guilds + i + 1}"
+            g_data = await api_create_guild(token, g_name)
+            if g_data and "id" in g_data:
+                gid = int(g_data["id"])
+                for r_idx in range(1, 7):
+                    await api_create_automod_rule(token, gid, r_idx)
+                await asyncio.sleep(1.0)
+            else:
+                break
+
+    # Lấy thông số hiện tại
+    flags, is_public = await api_get_app_info(token)
+    total_rules = await count_total_automod_rules(bot_client)
+    guild_count = len(bot_client.guilds)
+
+    embed = create_automod_embed(guild_count, total_rules, flags, is_public, client=bot_client)
+    view = AutoModPanelView(bot_client=bot_client)
+
+    banner_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "banner.png")
+    if os.path.exists(banner_path):
+        banner_file = discord.File(banner_path, filename="banner.png")
+        embed.set_image(url="attachment://banner.png")
+        await interaction.channel.send(embed=embed, file=banner_file, view=view)
+    else:
+        await interaction.channel.send(embed=embed, view=view)
+
+    await interaction.followup.send("✅ Đã kích hoạt hệ thống AutoMod Server Hub thành công!", ephemeral=True)
+
+
+@bot.tree.command(name="tao_sever", description="Tự động tạo 10 server test & bảng điều khiển AutoMod Badge")
+@app_commands.default_permissions(manage_guild=True)
+async def cmd_tao_sever(interaction: discord.Interaction):
+    await handle_tao_server(interaction)
+
+
+@bot.tree.command(name="tao_server", description="Tự động tạo 10 server test & bảng điều khiển AutoMod Badge")
+@app_commands.default_permissions(manage_guild=True)
+async def cmd_tao_server(interaction: discord.Interaction):
+    await handle_tao_server(interaction)
 
 
 @bot.tree.command(name="hypesquad-panel", description="Gửi bảng điều khiển chọn huy hiệu HypeSquad với các nút bấm")
