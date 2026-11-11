@@ -102,7 +102,6 @@ Mở file `config.json` và dán Token vào:
   ```text
   /verified_server
   ```
-  *(hoặc `/verified_panel`)*
 * **Cơ chế hoạt động:**
   - Bot gửi bảng điều khiển **Verified Server Hub** chuẩn phong cách NCT Pro VIP kèm bộ 6 nút bấm tương tác:
     - `[ 🔍 Audit Máy Chủ ]`: Quét máy chủ hiện tại, đánh giá tiêu chuẩn Community, rules channel, explicit content filter và chấm điểm Readiness (0 - 100%).

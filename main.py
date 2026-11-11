@@ -1367,7 +1367,7 @@ async def cmd_panel(interaction: discord.Interaction):
 
 
 async def handle_verified_server(interaction: discord.Interaction):
-    """Xử lý lệnh /verified_server hoặc /verified_panel"""
+    """Xử lý lệnh /verified_server"""
     await interaction.response.defer(ephemeral=False)
     bot_client: commands.Bot = interaction.client
     guild = interaction.guild
@@ -1389,12 +1389,6 @@ async def handle_verified_server(interaction: discord.Interaction):
 @bot.tree.command(name="verified_server", description="Mở bảng điều khiển kiểm định & hỗ trợ lấy huy hiệu Verified Server (Tích Xanh 🟢)")
 @app_commands.default_permissions(manage_guild=True)
 async def cmd_verified_server(interaction: discord.Interaction):
-    await handle_verified_server(interaction)
-
-
-@bot.tree.command(name="verified_panel", description="Mở bảng điều khiển kiểm định & hỗ trợ lấy huy hiệu Verified Server (Tích Xanh 🟢)")
-@app_commands.default_permissions(manage_guild=True)
-async def cmd_verified_panel(interaction: discord.Interaction):
     await handle_verified_server(interaction)
 
 
