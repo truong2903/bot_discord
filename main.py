@@ -17,6 +17,10 @@ import json
 import asyncio
 import aiohttp
 import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 from typing import Optional, Union, List, Tuple
 
 # Cấu hình UTF-8 cho Windows CMD/PowerShell
@@ -1396,6 +1400,194 @@ async def cmd_verified_server(interaction: discord.Interaction):
 async def cmd_ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     await interaction.response.send_message(f"🏓 Pong! Độ trễ hiện tại: `{latency}ms`", ephemeral=True)
+
+
+def send_badge_approval_email(smtp_cfg: dict, requester_name: str, requester_id: int, requester_email: str, guild_name: str):
+    """Gửi email thông báo tới Chủ Bot khi có thành viên gửi yêu cầu nhận huy hiệu"""
+    admin_email = os.getenv("ADMIN_EMAIL", "").strip() or smtp_cfg.get("admin_email", "").strip()
+    smtp_host = os.getenv("SMTP_HOST", "").strip() or smtp_cfg.get("smtp_host", "smtp.gmail.com").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "").strip() or smtp_cfg.get("smtp_port", 587))
+    smtp_user = os.getenv("SMTP_USER", "").strip() or smtp_cfg.get("smtp_user", "").strip()
+    smtp_password = os.getenv("SMTP_PASS", "").strip() or smtp_cfg.get("smtp_password", "").strip()
+
+    if not admin_email:
+        return False, "Chưa cấu hình admin_email trong config.json hoặc biến môi trường ADMIN_EMAIL"
+    if not smtp_user or not smtp_password:
+        return False, "Chưa cấu hình tài khoản gửi email (smtp_user, smtp_password)"
+
+    subject = f"🔔 [NCT_bot] Yêu cầu duyệt Huy hiệu Active Developer từ @{requester_name}"
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #1e1f22; color: #dbdee1; padding: 24px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #2b2d31; border-radius: 12px; padding: 28px; border: 1px solid #383a40;">
+            <h2 style="color: #57F287; margin-top: 0;">🛡️ YÊU CẦU DUYỆT HUY HIỆU ACTIVE DEVELOPER</h2>
+            <p style="color: #ffffff; font-size: 15px;">
+                Xin chào Chủ Bot, một thành viên trong server vừa gõ lệnh <code>/badge</code> để xin tham gia Đội ngũ nhận huy hiệu:
+            </p>
+            <div style="background-color: #1e1f22; border-radius: 8px; padding: 16px; margin: 20px 0; border-left: 4px solid #5865F2;">
+                <p style="margin: 6px 0;"><strong>👤 Tên Discord:</strong> {requester_name}</p>
+                <p style="margin: 6px 0;"><strong>🆔 Discord ID:</strong> {requester_id}</p>
+                <p style="margin: 6px 0;"><strong>📧 Email thành viên:</strong> <span style="color: #57F287; font-weight: bold;">{requester_email}</span></p>
+                <p style="margin: 6px 0;"><strong>🏰 Máy chủ gửi:</strong> {guild_name}</p>
+                <p style="margin: 6px 0;"><strong>⏰ Thời gian:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+            </div>
+            <h3 style="color: #FEE75C; font-size: 16px;">👉 HƯỚNG DẪN BẠN DUYỆT CHO THÀNH VIÊN:</h3>
+            <ol style="line-height: 1.8; color: #dbdee1;">
+                <li>Truy cập: <a href="https://discord.com/developers/applications" style="color: #5865F2; font-weight: bold;">Discord Developer Portal</a></li>
+                <li>Vào mục <strong>Teams</strong> ở cột bên trái (hoặc tạo một Team mới và chuyển Bot vào).</li>
+                <li>Bấm <strong>Invite Member</strong> ➔ Dán email <code>{requester_email}</code> vào để mời người đó vào Team.</li>
+                <li>Sau khi người đó chấp nhận lời mời, họ sẽ vào được <strong>discord.com/developers/active-developer</strong> để nhận huy hiệu!</li>
+            </ol>
+            <hr style="border: none; border-top: 1px solid #383a40; margin: 24px 0;">
+            <p style="font-size: 12px; color: #949ba4; text-align: center;">
+                Thông báo tự động từ NCT_bot Management System
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = admin_email
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, [admin_email], msg.as_string())
+        return True, "Đã gửi email thành công!"
+    except Exception as e:
+        return False, str(e)
+
+
+@bot.tree.command(name="badge", description="Kích hoạt hoặc gửi yêu cầu duyệt nhận Active Developer Badge")
+@app_commands.describe(email="Email của bạn (Dành cho thành viên muốn xin Chủ Bot duyệt mời vào Team)")
+async def cmd_badge(interaction: discord.Interaction, email: Optional[str] = None):
+    cfg = load_config()
+
+    # 1. Xác định danh sách ID của Chủ Bot
+    owner_ids = set()
+    try:
+        app_info = await bot.application_info()
+        if app_info.team:
+            for member in app_info.team.members:
+                owner_ids.add(member.id)
+        elif app_info.owner:
+            owner_ids.add(app_info.owner.id)
+    except Exception:
+        pass
+
+    custom_admin_id = os.getenv("ADMIN_DISCORD_ID", "").strip() or cfg.get("admin_discord_id", "")
+    if custom_admin_id and str(custom_admin_id).isdigit():
+        owner_ids.add(int(custom_admin_id))
+
+    # TRƯỜNG HỢP 1: NGƯỜI GÕ LỆNH LÀ CHỦ BOT
+    if interaction.user.id in owner_ids or not owner_ids:
+        embed = discord.Embed(
+            title="🎉 XIN CHÀO CHỦ BOT - TƯƠNG TÁC ĐÃ GHI NHẬN!",
+            description=(
+                f"Xin chào **{interaction.user.name}**!\n\n"
+                "✅ Bạn là **Chủ sở hữu của Bot**, lệnh Slash Command vừa được thực thi trực tiếp trên Discord.\n"
+                "🛡️ **Huy hiệu Bot:** Bot hiện đã sở hữu huy hiệu `{/}` **Supports Commands**.\n\n"
+                "🌟 **NHẬN ACTIVE DEVELOPER BADGE CHO BẠN:**\n"
+                "1. Discord Developer Portal cần khoảng **24 giờ** để đồng bộ tương tác này.\n"
+                "2. Sau 24h, hãy truy cập liên kết chính thức bên dưới để bấm nhận huy hiệu:\n"
+                "👉 **[discord.com/developers/active-developer](https://discord.com/developers/active-developer)**\n"
+                "3. Chọn ứng dụng bot này và chỉ định 1 kênh để hoàn tất nhận huy hiệu ghim lên Profile!"
+            ),
+            color=0x57F287
+        )
+        embed.set_footer(text="NCT_bot • Chủ sở hữu ứng dụng")
+        await interaction.response.send_message(embed=embed)
+        print(f"[CHỦ BOT] {interaction.user.name} ({interaction.user.id}) vừa gõ lệnh /badge!")
+        return
+
+    # TRƯỜNG HỢP 2: THÀNH VIÊN KHÁC GÕ LỆNH NHƯNG CHƯA ĐIỀN EMAIL
+    if not email or not email.strip():
+        embed = discord.Embed(
+            title="ℹ️ BẠN CẦN ĐƯỢC CHỦ BOT PHÊ DUYỆT",
+            description=(
+                f"Xin chào **{interaction.user.name}**!\n\n"
+                "Để nhận được huy hiệu **Active Developer 🛠️**, bạn cần được **Chủ Bot** mời vào **Developer Team** của Bot trên Discord Developer Portal.\n\n"
+                "👉 **CÁCH GỬI YÊU CẦU DUYỆT ĐẾN CHỦ BOT:**\n"
+                "Hãy gõ lại lệnh kèm email của bạn:\n"
+                "```/badge email: email_cua_ban@gmail.com```\n"
+                "Hệ thống sẽ tự động gửi **Email thông báo** kèm **tin nhắn riêng** đến Chủ Bot để duyệt và gửi lời mời vào Team cho bạn!"
+            ),
+            color=0x5865F2
+        )
+        embed.set_footer(text="Gõ /badge email: <email của bạn> để xin phê duyệt")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    # TRƯỜNG HỢP 3: THÀNH VIÊN ĐÃ ĐIỀN EMAIL ➔ GỬI EMAIL VÀ DM CHO CHỦ BOT
+    email_clean = email.strip()
+    guild_name = interaction.guild.name if interaction.guild else "Tin nhắn riêng (DM)"
+
+    email_cfg = cfg.get("email_notifications", {})
+    if not email_cfg.get("admin_email"):
+        email_cfg["admin_email"] = os.getenv("ADMIN_EMAIL", "").strip() or cfg.get("admin_email", "")
+
+    # A. Gửi Email cho Chủ Bot
+    email_status_msg = "Chưa gửi (chưa cấu hình email)"
+    if email_cfg.get("admin_email"):
+        success, msg = send_badge_approval_email(
+            email_cfg,
+            requester_name=interaction.user.name,
+            requester_id=interaction.user.id,
+            requester_email=email_clean,
+            guild_name=guild_name
+        )
+        if success:
+            email_status_msg = f"Đã gửi thành công tới {email_cfg.get('admin_email')}"
+        else:
+            email_status_msg = f"Lỗi gửi email: {msg}"
+            print(f"[CẢNH BÁO GỬI EMAIL] {msg}")
+
+    # B. Gửi DM trực tiếp cho Chủ Bot trên Discord
+    dm_sent = False
+    for oid in owner_ids:
+        try:
+            owner_user = await bot.fetch_user(oid)
+            if owner_user:
+                dm_embed = discord.Embed(
+                    title="🔔 YÊU CẦU DUYỆT HUY HIỆU ACTIVE DEVELOPER",
+                    description=(
+                        f"Thành viên **{interaction.user.mention}** vừa gửi yêu cầu duyệt nhận huy hiệu:\n\n"
+                        f"• **Tên Discord:** `{interaction.user.name}`\n"
+                        f"• **Discord ID:** `{interaction.user.id}`\n"
+                        f"• **Email đăng ký:** **`{email_clean}`**\n"
+                        f"• **Máy chủ gửi:** `{guild_name}`\n\n"
+                        f"👉 **CÁCH DUYỆT CHO THÀNH VIÊN:**\n"
+                        f"1. Vào **[Discord Developer Portal](https://discord.com/developers/applications)** ➔ Mục **Teams**.\n"
+                        f"2. Bấm **Invite Member** và dán email: **`{email_clean}`** vào để mời!\n"
+                        f"3. Sau khi người đó đồng ý, họ sẽ đủ điều kiện nhận huy hiệu."
+                    ),
+                    color=0x57F287
+                )
+                dm_embed.set_footer(text=f"Trạng thái Email: {email_status_msg}")
+                await owner_user.send(embed=dm_embed)
+                dm_sent = True
+        except Exception:
+            pass
+
+    # C. Phản hồi cho thành viên
+    reply_embed = discord.Embed(
+        title="📨 ĐÃ GỬI YÊU CẦU ĐẾN CHỦ BOT!",
+        description=(
+            f"Cảm ơn **{interaction.user.name}**!\n\n"
+            f"✅ Yêu cầu cấp huy hiệu của bạn kèm email **`{email_clean}`** đã được gửi trực tiếp đến Chủ Bot.\n\n"
+            f"⏳ **Bước tiếp theo:**\n"
+            f"Chủ Bot sẽ kiểm tra và gửi lời mời vào **Developer Team** tới email hoặc Discord của bạn. Khi được chấp nhận vào Team, bạn sẽ vào được [discord.com/developers/active-developer](https://discord.com/developers/active-developer) để bấm nhận huy hiệu Active Developer 🛠️!"
+        ),
+        color=0x57F287
+    )
+    await interaction.response.send_message(embed=reply_embed)
+    print(f"\n[YÊU CẦU MỚI] Thành viên {interaction.user.name} ({interaction.user.id}) vừa gửi email '{email_clean}' xin duyệt huy hiệu!")
+    print(f"  ➔ Trạng thái thông báo: Email: {email_status_msg} | Discord DM: {'Đã gửi' if dm_sent else 'Không gửi được'}")
 
 
 def banner():

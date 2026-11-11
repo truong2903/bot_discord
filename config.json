@@ -1,6 +1,16 @@
 {
   "bot_token": "",
   "guild_id": "",
+  "admin_email": "",
+  "admin_discord_id": "",
+  "email_notifications": {
+    "enabled": true,
+    "admin_email": "",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "smtp_user": "",
+    "smtp_password": ""
+  },
   "auto_create_roles": true,
   "banner_url": "",
   "role_names": {
