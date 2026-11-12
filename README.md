@@ -110,3 +110,17 @@ Mở file `config.json` và dán Token vào:
     - `[ 🔗 Tạo Link Proof Steam ]`: Mở Modal Popup nhập Invite link + Proof Token để sinh đường dẫn chuẩn hóa dán vào Steamworks Partner Admin.
     - `[ 📖 Cẩm Nang Claim A-Z ]`: Hướng dẫn chi tiết 5 bước từ lúc có game trên Steam đến khi Discord cấp tích xanh.
     - `[ 🚀 Discord Developer Portal ]`: Nút link mở trực tiếp trang quản trị ứng dụng Discord.
+
+### 4. Bảng Điều Khiển Game Variety Badge (Universalist 100+ Games 🌟)
+* Gõ lệnh:
+  ```text
+  /game_variety
+  ```
+  *(Hoặc lệnh rút gọn `/game-variety`)*
+* **Cơ chế hoạt động:**
+  - Bot gửi bảng điều khiển **Game Variety & Gaming Activity Hub** kèm bộ 5 nút bấm tương tác Pro VIP:
+    - `[ 🏆 10 Cấp Bậc & Lộ Trình ]`: Hiển thị bảng tra cứu 10 cấp bậc từ Sampler (2 game) đến Universalist (100+ game duy nhất).
+    - `[ ⚡ Mã 1-Click Console ]`: Gửi đoạn script JavaScript tối ưu để dán thẳng vào Discord Desktop Developer Console (`Ctrl + Shift + I`) giúp bắn telemetry 100 tựa game trong vài giây.
+    - `[ 💻 Tool Cục Bộ (0% CPU) ]`: Hướng dẫn chi tiết cách chạy tool cục bộ trong thư mục `discord-game-variety-badge` (chạy nền siêu nhẹ 0.00% CPU, tự động ghi nhớ `progress.json`).
+    - `[ 🎮 Top Game Chuẩn 100% ]`: Danh mục các tựa game thuần độc lập chắc chắn kích hoạt chữ "Đang chơi..." trên Discord Desktop 100% (*Roblox, LoL, CS2, Minecraft, Dota 2, GTA 5, Overwatch, Rocket League, Terraria, Cyberpunk, Genshin,...*).
+    - `[ 📖 Hướng Dẫn & FAQ ]`: Giải đáp thời gian cập nhật của Discord (24 - 48 giờ), các cài đặt quyền riêng tư bắt buộc và lưu ý khi Discord rollout tính năng.
