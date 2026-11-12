@@ -1676,11 +1676,6 @@ async def cmd_game_variety(interaction: discord.Interaction):
     await handle_game_variety(interaction)
 
 
-@bot.tree.command(name="game-variety", description="Mở bảng điều khiển cày huy hiệu Game Variety (100+ Games) & Game Time")
-async def cmd_game_variety_alias(interaction: discord.Interaction):
-    await handle_game_variety(interaction)
-
-
 @bot.tree.command(name="ping", description="Kiểm tra độ trễ phản hồi của Bot")
 async def cmd_ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)

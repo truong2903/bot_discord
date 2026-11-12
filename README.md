@@ -116,7 +116,6 @@ Mở file `config.json` và dán Token vào:
   ```text
   /game_variety
   ```
-  *(Hoặc lệnh rút gọn `/game-variety`)*
 * **Cơ chế hoạt động:**
   - Bot gửi bảng điều khiển **Game Variety & Gaming Activity Hub** kèm bộ 5 nút bấm tương tác Pro VIP:
     - `[ 🏆 10 Cấp Bậc & Lộ Trình ]`: Hiển thị bảng tra cứu 10 cấp bậc từ Sampler (2 game) đến Universalist (100+ game duy nhất).
